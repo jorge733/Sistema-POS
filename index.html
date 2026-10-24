@@ -690,7 +690,16 @@
         /* ===== V3: interfaz más limpia y jerarquía clara ===== */
         :root { --radius:12px; --ink:#0f172a; --ink-2:#334155; }
         * { font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif; }
-        .receipt, .receipt * { font-family:'Courier New', Courier, monospace !important; }
+        /* Comprobante: monoespaciada de trazo grueso y todo en negrita (las térmicas imprimen tenue el texto fino) */
+        .receipt, .receipt * { font-family:Consolas, 'Lucida Console', 'DejaVu Sans Mono', 'Courier New', monospace !important; font-weight:700 !important; color:#000 !important; }
+        .receipt { font-size:.88rem; line-height:1.38; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+        .receipt-divider { border-top:2px dashed #000 !important; margin:7px 0; }
+        .receipt-sii-box { border:2.5px solid #000 !important; padding:7px 10px; letter-spacing:.04em; }
+        .receipt #rcp-store-name { font-size:1.12rem !important; font-weight:900 !important; letter-spacing:.02em; }
+        .receipt .rcp-total-row, .receipt .rcp-total-row * { font-size:1.35rem !important; font-weight:900 !important; }
+        .receipt #rcp-savings-box { border:2px dashed #000 !important; }
+        /* Los botones del modal no son parte del papel: conservan la tipografía de la interfaz */
+        .receipt button, .receipt button * { font-family:'Inter', 'Segoe UI', system-ui, sans-serif !important; color:#fff !important; }
         .i { width:18px; height:18px; flex:none; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; vertical-align:-4px; }
         button .i { margin-right:6px; }
         .icon-btn .i { margin:0; width:16px; height:16px; }
@@ -1287,7 +1296,7 @@
                 <div class="summary-row" style="font-size: 0.8rem;"><span>Ventas Débito:</span><strong id="z-debito">$0</strong></div>
                 <div class="summary-row" style="font-size: 0.8rem;"><span>Ventas Crédito:</span><strong id="z-credito">$0</strong></div>
                 <div class="receipt-divider"></div>
-                <div class="summary-row total" style="font-size: 1rem; padding-top: 4px;"><span>TOTAL DÍA:</span><span id="z-total">$0</span></div>
+                <div class="summary-row total rcp-total-row" style="padding-top: 4px;"><span>TOTAL DÍA:</span><span id="z-total">$0</span></div>
             </div>
             <div class="receipt-divider"></div>
             <button class="btn-pay no-print" onclick="window.print()" style="padding: 10px; font-size: 1rem;"><svg class="i"><use href="#i-printer"/></svg> Imprimir reporte Z</button>
@@ -1334,7 +1343,7 @@
             <div class="receipt-divider"></div>
 
             <!-- TOTALES Y DESGLOSE IVA 19% -->
-            <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.05rem; margin-top: 4px;">
+            <div class="rcp-total-row" style="display: flex; justify-content: space-between; margin-top: 4px;">
                 <span>TOTAL:</span>
                 <span id="rcp-total">$0</span>
             </div>
