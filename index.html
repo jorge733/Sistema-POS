@@ -806,6 +806,21 @@
         .backup-row strong .i { width:16px; height:16px; }
         .backup-warn strong { color:#b45309; }
         .backup-warn { background:#fffbeb; border:1px solid #fde68a !important; border-radius:10px; padding:10px 12px !important; margin-top:8px; }
+        /* Diálogo de confirmación propio */
+        .dialog-card { background:#fff; width:min(400px,calc(100vw - 28px)); border-radius:16px; padding:26px 24px 20px; text-align:center; box-shadow:0 24px 70px rgba(15,23,42,.35); animation:dialogIn .16s ease-out; }
+        @keyframes dialogIn { from { transform:scale(.96); opacity:0; } to { transform:none; opacity:1; } }
+        .dialog-icon { width:52px; height:52px; margin:0 auto 14px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:#eff6ff; color:var(--primary); }
+        .dialog-icon .i { width:26px; height:26px; margin:0; }
+        .dialog-card.danger .dialog-icon { background:#fef2f2; color:var(--danger); }
+        .dialog-card.warning .dialog-icon { background:#fffbeb; color:var(--warning); }
+        .dialog-card h2 { font-size:1.15rem; color:var(--ink); letter-spacing:-.01em; }
+        .dialog-card p { color:var(--muted); font-size:.92rem; line-height:1.45; margin:8px 0 20px; white-space:pre-line; }
+        .dialog-actions { display:flex; gap:10px; }
+        .dialog-actions button { flex:1; min-height:44px; font-size:.95rem; }
+        .dialog-confirm { border:none; border-radius:8px; font-weight:700; cursor:pointer; color:#fff; background:var(--primary); }
+        .dialog-confirm:hover { filter:brightness(.95); }
+        .dialog-card.danger .dialog-confirm { background:var(--danger); }
+        .dialog-card.warning .dialog-confirm { background:var(--warning); }
         .form-pair { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
         .form-group label small { font-weight:500; color:var(--muted); }
         #form-title { margin-bottom:12px; }
@@ -1427,6 +1442,19 @@
         </div>
     </div></div>
 
+    <!-- DIÁLOGO DE CONFIRMACIÓN (reemplaza a confirm() del navegador) -->
+    <div id="app-dialog" class="modal" style="z-index:10002;" role="dialog" aria-modal="true" aria-labelledby="app-dialog-title">
+        <div class="dialog-card">
+            <div class="dialog-icon" id="app-dialog-icon"></div>
+            <h2 id="app-dialog-title"></h2>
+            <p id="app-dialog-message"></p>
+            <div class="dialog-actions">
+                <button type="button" class="btn-soft" id="app-dialog-cancel" onclick="closeAppDialog(false)">Cancelar</button>
+                <button type="button" class="dialog-confirm" id="app-dialog-confirm" onclick="closeAppDialog(true)">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL CAMBIO DE CONTRASEÑA -->
     <div id="password-modal" class="modal" style="z-index:10001;"><div class="modal-card" style="width:min(420px,calc(100vw - 28px));">
         <div class="modal-title-row"><div><h2><svg class="i"><use href="#i-key"/></svg> <span id="password-modal-title">Cambiar contraseña</span></h2><div id="password-modal-text" style="color:var(--muted);font-size:.85rem;margin-top:4px;"></div></div></div>
@@ -1521,7 +1549,36 @@
             c.appendChild(t);
             setTimeout(() => t.remove(), 3200);
         }
-        window.alert = (msg) => notify(msg, String(msg).includes('❌') || String(msg).includes('denegado') || String(msg).includes('incorrect') ? 'error' : String(msg).includes('⚠️') ? 'warning' : 'success');
+        // ===== Diálogo de confirmación propio (reemplaza confirm() del navegador) =====
+        // Uso: if (await confirmDialog({ title, message, confirmText, variant: 'danger' })) { ... }
+        let appDialogResolve = null;
+        let appDialogOpenedAt = 0;
+        const DIALOG_ICONS = { danger: 'trash', warning: 'alert', primary: 'check' };
+
+        function confirmDialog({ title, message = '', confirmText = 'Aceptar', cancelText = 'Cancelar', variant = 'primary', icon: iconName } = {}) {
+            if (appDialogResolve) appDialogResolve(false); // si había otro abierto, se descarta
+            const card = document.querySelector('#app-dialog .dialog-card');
+            card.className = `dialog-card ${variant}`;
+            document.getElementById('app-dialog-icon').innerHTML = icon(iconName || DIALOG_ICONS[variant] || 'check');
+            document.getElementById('app-dialog-title').textContent = title;
+            document.getElementById('app-dialog-message').textContent = message;
+            document.getElementById('app-dialog-confirm').textContent = confirmText;
+            document.getElementById('app-dialog-cancel').textContent = cancelText;
+            document.getElementById('app-dialog').style.display = 'flex';
+            appDialogOpenedAt = performance.now();
+            // En acciones destructivas el foco queda en "Cancelar" para que un Enter accidental no borre nada
+            setTimeout(() => document.getElementById(variant === 'danger' ? 'app-dialog-cancel' : 'app-dialog-confirm').focus(), 30);
+            return new Promise(resolve => { appDialogResolve = resolve; });
+        }
+
+        function closeAppDialog(result) {
+            document.getElementById('app-dialog').style.display = 'none';
+            const resolve = appDialogResolve;
+            appDialogResolve = null;
+            if (resolve) resolve(result);
+        }
+
+        const isAppDialogOpen = () => document.getElementById('app-dialog').style.display === 'flex';
 
 
 
@@ -1549,7 +1606,7 @@
             clearTimeout(inactivityTimer);
             if (currentUser) {
                 inactivityTimer = setTimeout(() => {
-                    alert('🔒 Sesión cerrada automáticamente por inactividad.');
+                    notify('Sesión cerrada automáticamente por inactividad.', 'warning');
                     logout(true);
                 }, 300000);
             }
@@ -1704,6 +1761,14 @@
         };
 
         window.addEventListener('keydown', function(e) {
+            // El diálogo de confirmación tiene prioridad y bloquea todos los atajos
+            if (isAppDialogOpen()) {
+                if (e.timeStamp < appDialogOpenedAt) return; // la misma tecla que lo abrió (ej. Enter del lector) no lo responde
+                if (e.key === 'Escape') { e.preventDefault(); closeAppDialog(false); }
+                else if (e.key === 'Enter') { e.preventDefault(); closeAppDialog(document.activeElement !== document.getElementById('app-dialog-cancel')); }
+                else if (e.key.startsWith('F')) e.preventDefault();
+                return;
+            }
             const isReceiptOpen = document.getElementById('receipt-modal').style.display === 'flex';
             const isCheckerOpen = document.getElementById('price-checker-modal').style.display === 'flex';
 
@@ -1958,8 +2023,8 @@
             }
         }
 
-        function logout(force = false) {
-            if (force || confirm('¿Cerrar sesión actual?')) {
+        async function logout(force = false) {
+            if (force || await confirmDialog({ title: '¿Cerrar sesión?', message: `Se cerrará la sesión de ${currentUser}. La venta en curso se conserva.`, confirmText: 'Cerrar sesión', variant: 'warning', icon: 'power' })) {
                 currentUser = null;
                 localStorage.removeItem('pos_current_user');
                 switchTab('caja');
@@ -1991,12 +2056,12 @@
             notify('Usuario registrado.', 'success');
         }
 
-        function deleteUser(name) {
+        async function deleteUser(name) {
             if (!requireAdmin()) return;
             if (name === currentUser) { notify('No puedes eliminar el usuario con el que iniciaste sesión.', 'error'); return; }
             const target = users.find(u => u.name === name);
             if (target && target.role === 'admin' && users.filter(u => u.role === 'admin').length <= 1) { notify('Debe existir al menos un Administrador.', 'error'); return; }
-            if (confirm(`¿Eliminar al usuario "${name}"?`)) {
+            if (await confirmDialog({ title: 'Eliminar usuario', message: `"${name}" ya no podrá iniciar sesión. Sus ventas registradas se conservan.`, confirmText: 'Eliminar', variant: 'danger' })) {
                 users = users.filter(u => u.name !== name);
                 localStorage.setItem('pos_users_v2', JSON.stringify(users));
                 renderUsersTable();
@@ -2077,8 +2142,10 @@
             notify('Socio/a registrado/a.', 'success');
         }
 
-        function deleteMember(rut) {
-            if (confirm('¿Eliminar socio/a?')) {
+        async function deleteMember(rut) {
+            if (!requireAdmin()) return;
+            const member = members.find(m => m.rut === rut);
+            if (member && await confirmDialog({ title: 'Eliminar socio/a', message: `${member.name} (${member.rut}) dejará de recibir su ${member.discount}% de descuento.`, confirmText: 'Eliminar', variant: 'danger' })) {
                 members = members.filter(m => m.rut !== rut);
                 localStorage.setItem('pos_members', JSON.stringify(members));
                 renderMembersTable();
@@ -2115,7 +2182,7 @@
             
             if ((tabName === 'config' || tabName === 'inventario') && (!userObj || userObj.role !== 'admin')) {
                 playSound('error');
-                alert('🔒 Acceso denegado: Solo el Administrador puede ingresar.');
+                notify('Acceso denegado: solo el Administrador puede ingresar.', 'error');
                 return;
             }
 
@@ -2227,10 +2294,10 @@
             lookupForProductForm();
         }
 
-        function deleteProduct(barcode) {
+        async function deleteProduct(barcode) {
             if (!requireAdmin()) return;
             const prod = inventory.find(p => p.barcode === barcode);
-            if (prod && confirm(`¿Eliminar "${prod.name}"?`)) {
+            if (prod && await confirmDialog({ title: 'Eliminar producto', message: `"${prod.name}" (${prod.barcode}) se quitará del catálogo. Las ventas pasadas no se modifican.`, confirmText: 'Eliminar', variant: 'danger' })) {
                 inventory = inventory.filter(p => p.barcode !== barcode);
                 localStorage.setItem('pos_inventory', JSON.stringify(inventory));
                 renderInventory();
@@ -2238,9 +2305,9 @@
             }
         }
 
-        function resetAllStock() {
+        async function resetAllStock() {
             if (!requireAdmin('🔒 Solo el Administrador puede reiniciar el stock.')) return;
-            if (confirm('⚠️ ¿Reiniciar stock de TODOS los productos a 0?')) {
+            if (await confirmDialog({ title: 'Reiniciar todo el stock', message: `El stock de los ${inventory.length} productos quedará en 0. Quedará registrado en Movimientos, pero no se puede deshacer automáticamente.`, confirmText: 'Reiniciar stock', variant: 'danger', icon: 'refresh' })) {
                 inventory.forEach(p => { const delta = -p.stock; p.stock = 0; if (delta !== 0) recordStockMovement(p, 'reset', delta, 0, 'Reinicio general de stock'); });
                 localStorage.setItem('pos_inventory', JSON.stringify(inventory));
                 renderInventory();
@@ -2315,7 +2382,9 @@
                             playSound('error');
                             const code = this.value.trim();
                             if (/^\d{6,14}$/.test(code) && isAdmin()) {
-                                if (confirm(`El código ${code} no está registrado.\n¿Registrarlo ahora?`)) { this.value = ''; hideSearchDropdown(); registerScannedBarcode(code); }
+                                const input = this;
+                                confirmDialog({ title: 'Producto no registrado', message: `El código ${code} no está en el catálogo.\n¿Quieres registrarlo ahora?`, confirmText: 'Registrar producto', cancelText: 'Ahora no', variant: 'warning', icon: 'box' })
+                                    .then(ok => { if (ok) { input.value = ''; hideSearchDropdown(); registerScannedBarcode(code); } else input.select(); });
                             } else {
                                 notify('Producto no encontrado', 'error');
                             }
@@ -2537,7 +2606,7 @@
             renderDashboard();
         }
 
-        function cancelSale(ticketId) {
+        async function cancelSale(ticketId) {
             const userObj = users.find(u => u.name === currentUser);
             if (!userObj || userObj.role !== 'admin') {
                 playSound('error');
@@ -2545,7 +2614,8 @@
                 return;
             }
 
-            if (confirm(`¿Anular la boleta N° ${ticketId}? Se devolverán los productos al stock.`)) {
+            const target = salesHistory.find(s => s.id === ticketId);
+            if (target && await confirmDialog({ title: `Anular venta N° ${ticketId}`, message: `Total ${formatCLP(target.total)} · ${target.method}.\nLos productos vuelven al stock y la venta queda marcada como anulada.`, confirmText: 'Anular venta', variant: 'danger', icon: 'x' })) {
                 const sale = salesHistory.find(s => s.id === ticketId);
                 if (sale && !sale.canceled) {
                     sale.canceled = true;
@@ -2561,7 +2631,7 @@
                     renderInventory();
                     renderSales();
                     renderDashboard();
-                    alert('✅ Boleta anulada con éxito y stock devuelto.');
+                    notify('Venta anulada y stock devuelto.', 'success');
                 }
             }
         }
