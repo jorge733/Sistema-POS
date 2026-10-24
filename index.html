@@ -830,6 +830,23 @@
         .dialog-confirm:hover { filter:brightness(.95); }
         .dialog-card.danger .dialog-confirm { background:var(--danger); }
         .dialog-card.warning .dialog-confirm { background:var(--warning); }
+        /* Panel de precio sugerido */
+        .price-suggest { margin:-2px 0 12px; border:1px solid #c7d2fe; background:#f8faff; border-radius:10px; padding:4px 10px; }
+        .ps-row { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:7px 0; border-bottom:1px solid #e0e7ff; font-size:.84rem; }
+        .ps-row:last-child { border-bottom:none; }
+        .ps-row .i { width:15px; height:15px; margin-right:5px; vertical-align:-3px; color:var(--primary); }
+        .ps-label { font-weight:700; color:var(--ink-2); }
+        .ps-detail { display:block; font-size:.74rem; color:var(--muted); margin-left:20px; }
+        .ps-right { display:flex; align-items:center; gap:8px; white-space:nowrap; }
+        .ps-right strong { font-variant-numeric:tabular-nums; }
+        .ps-use { padding:3px 10px !important; min-height:0 !important; font-size:.78rem; }
+        .ps-note { color:var(--muted); justify-content:flex-start; }
+        .ps-loading .i { animation:psPulse 1s ease-in-out infinite; }
+        @keyframes psPulse { 50% { opacity:.3; } }
+        .ps-warn { color:#b45309; font-weight:700; }
+        .ps-warn .i { color:#b45309; }
+        .ps-profit { color:#166534; }
+        .form-hint { font-size:.78rem; color:var(--muted); margin:-4px 0 12px; }
         .form-pair { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
         .form-group label small { font-weight:500; color:var(--muted); }
         #form-title { margin-bottom:12px; }
@@ -1073,13 +1090,19 @@
                         </div>
                         <div class="form-pair">
                             <div class="form-group">
-                                <label>Precio normal ($)</label>
-                                <input type="number" id="prod-price" required min="0" placeholder="1500">
+                                <label for="prod-cost">Costo ($) <small>lo que pagas</small></label>
+                                <input type="number" id="prod-cost" min="0" placeholder="Opcional" oninput="renderPriceSuggestions()">
                             </div>
                             <div class="form-group">
-                                <label>Precio oferta ($) <small>opcional</small></label>
-                                <input type="number" id="prod-offer-price" min="0" placeholder="Sin oferta">
+                                <label for="prod-price">Precio de venta ($)</label>
+                                <input type="number" id="prod-price" required min="0" placeholder="1500" oninput="this.dataset.auto=''; renderPriceSuggestions()">
                             </div>
+                        </div>
+                        <!-- Precio sugerido: internet (Open Prices) → tu último precio → costo + margen -->
+                        <div id="price-suggest" class="price-suggest" style="display:none;"></div>
+                        <div class="form-group">
+                            <label for="prod-offer-price">Precio oferta ($) <small>opcional</small></label>
+                            <input type="number" id="prod-offer-price" min="0" placeholder="Sin oferta">
                         </div>
                         <div class="form-pair">
                             <div class="form-group">
@@ -1193,6 +1216,21 @@
                                 <option value="80">80 mm (impresora térmica estándar)</option>
                             </select>
                         </div>
+                        <div class="form-pair">
+                            <div class="form-group">
+                                <label for="cfg-margin">Margen sobre el costo (%)</label>
+                                <input type="number" id="cfg-margin" min="0" max="1000" step="1" placeholder="30">
+                            </div>
+                            <div class="form-group">
+                                <label for="cfg-round">Redondear precio sugerido a</label>
+                                <select id="cfg-round">
+                                    <option value="10">$10</option>
+                                    <option value="50">$50</option>
+                                    <option value="100">$100</option>
+                                </select>
+                            </div>
+                        </div>
+                        <p class="form-hint">Ej: con costo $1.000 y margen 30%, el precio sugerido es $1.300. Se usa cuando no hay precio en internet ni un precio anterior.</p>
                         <button type="submit" class="btn-pay" style="padding:10px;"><svg class="i"><use href="#i-save"/></svg> Guardar datos</button>
                     </form>
 
@@ -1430,7 +1468,7 @@
 
     <!-- MODAL IMPORTAR PRODUCTOS DESDE EXCEL -->
     <div id="import-modal" class="modal"><div class="modal-card">
-        <div class="modal-title-row"><div><h2><svg class="i"><use href="#i-upload"/></svg> Importar productos</h2><div style="color:var(--muted);font-size:.82rem;">Excel (.xlsx, .xls) o CSV con columnas: Código, Nombre, Precio, Stock (opcionales: Precio Oferta, Stock Mínimo)</div></div><button class="btn-soft" onclick="closeImportModal()">✕</button></div>
+        <div class="modal-title-row"><div><h2><svg class="i"><use href="#i-upload"/></svg> Importar productos</h2><div style="color:var(--muted);font-size:.82rem;">Excel (.xlsx, .xls) o CSV con columnas: Código, Nombre, Precio, Stock (opcionales: Costo, Precio Oferta, Stock Mínimo)</div></div><button class="btn-soft" onclick="closeImportModal()">✕</button></div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
             <button class="btn-secondary" type="button" onclick="document.getElementById('import-file-input').click()"><svg class="i"><use href="#i-file"/></svg> Elegir archivo</button>
             <button class="btn-soft" type="button" onclick="downloadImportTemplate()"><svg class="i"><use href="#i-download"/></svg> Descargar plantilla</button>
@@ -1661,10 +1699,108 @@
             { name: 'Open Products Facts', host: 'world.openproductsfacts.org' }
         ];
 
-        function rememberBarcodeName(code, name, source = 'Registro local') {
+        // Conserva lo ya aprendido (ej. último precio/costo) y actualiza solo lo indicado
+        function rememberBarcodeName(code, name, source = 'Registro local', extra = {}) {
             if (!code || !name) return;
-            barcodeCatalog[code] = { name, source };
+            barcodeCatalog[code] = { ...barcodeCatalog[code], name, source, ...extra };
             localStorage.setItem('pos_barcode_catalog', JSON.stringify(barcodeCatalog));
+        }
+
+        // ===== Precio sugerido =====
+        // Prioridad: 1) precio visto en internet (Open Prices, solo pesos chilenos)
+        //            2) último precio con que se vendió este código en la tienda
+        //            3) costo + margen configurado en Ajustes
+        let priceSuggest = null; // { code, internet: 'loading' | 'skip' | null | {price, store, city, date, count}, history: {price, cost} | null }
+        const internetPriceCache = new Map();
+
+        const getMarginPct = () => { const m = Number(storeConfig.marginPct); return Number.isFinite(m) && m >= 0 ? m : 30; };
+        const getRoundStep = () => [10, 50, 100].includes(Number(storeConfig.roundStep)) ? Number(storeConfig.roundStep) : 10;
+        // Precio de venta = costo + margen, redondeado hacia arriba al múltiplo configurado
+        function priceFromCost(cost) {
+            const step = getRoundStep();
+            return Math.ceil((cost * (1 + getMarginPct() / 100)) / step) * step;
+        }
+
+        async function fetchInternetPrice(code) {
+            if (internetPriceCache.has(code)) return internetPriceCache.get(code);
+            if (!/^\d{8,14}$/.test(code) || !navigator.onLine) return null;
+            let result = null;
+            try {
+                const r = await fetchWithTimeout(`https://prices.openfoodfacts.org/api/v1/prices?product_code=${code}&currency=CLP&order_by=-date&size=20`, 6000);
+                if (r.ok) {
+                    const items = ((await r.json()).items || []).filter(i => i.price > 0);
+                    // Preferir el precio normal más reciente; si solo hay ofertas, usar la más reciente
+                    const pick = items.find(i => !i.price_is_discounted) || items[0];
+                    if (pick) result = {
+                        price: Math.round(pick.price),
+                        store: pick.location?.osm_brand || pick.location?.osm_name || '',
+                        city: pick.location?.osm_address_city || '',
+                        date: pick.date || '',
+                        discounted: !!pick.price_is_discounted,
+                        count: items.length
+                    };
+                }
+            } catch (e) { return null; } // sin conexión o tiempo agotado: no se guarda en caché para reintentar
+            internetPriceCache.set(code, result);
+            return result;
+        }
+
+        async function startPriceSuggestions(code) {
+            const known = barcodeCatalog[code];
+            priceSuggest = { code, internet: 'loading', history: known && known.price ? { price: known.price, cost: known.cost } : null };
+            // Si ya conocíamos el costo de este código, precargarlo
+            const costInput = document.getElementById('prod-cost');
+            if (priceSuggest.history?.cost && !costInput.value) costInput.value = priceSuggest.history.cost;
+            renderPriceSuggestions();
+            const internet = await fetchInternetPrice(code);
+            if (!priceSuggest || priceSuggest.code !== code) return; // se cambió de producto mientras se buscaba
+            priceSuggest.internet = internet;
+            renderPriceSuggestions();
+        }
+
+        function usePrice(value) {
+            const input = document.getElementById('prod-price');
+            input.value = value;
+            input.dataset.auto = ''; // elegido por la persona: ya no se reemplaza solo
+            renderPriceSuggestions();
+            input.focus();
+        }
+
+        function renderPriceSuggestions() {
+            const box = document.getElementById('price-suggest');
+            const priceInput = document.getElementById('prod-price');
+            const cost = parseInt(document.getElementById('prod-cost').value) || 0;
+            const s = priceSuggest;
+            const marginPrice = cost > 0 ? priceFromCost(cost) : null;
+            const rows = [];
+            const option = (label, value, detail = '') => `<div class="ps-row"><div><span class="ps-label">${label}</span>${detail ? `<span class="ps-detail">${esc(detail)}</span>` : ''}</div><div class="ps-right"><strong>${formatCLP(value)}</strong><button type="button" class="btn-soft ps-use" onclick="usePrice(${value})">Usar</button></div></div>`;
+            const note = (text, cls = '') => `<div class="ps-row ps-note ${cls}">${text}</div>`;
+
+            if (s && s.internet !== 'skip') {
+                if (s.internet === 'loading') rows.push(note(`${icon('search')} Buscando precios en internet…`, 'ps-loading'));
+                else if (s.internet) {
+                    const d = s.internet.date ? s.internet.date.split('-').reverse().join('-') : '';
+                    rows.push(option(`${icon('tag')} Visto en internet`, s.internet.price, [s.internet.store, s.internet.city, d].filter(Boolean).join(' · ') + (s.internet.discounted ? ' · en oferta' : '')));
+                } else rows.push(note(`${icon('tag')} Sin precios en internet para este producto`));
+            }
+            if (s && s.history) rows.push(option(`${icon('refresh')} Tu último precio`, s.history.price));
+            if (marginPrice) rows.push(option(`${icon('chart')} Costo + ${getMarginPct()}%`, marginPrice, `redondeado a $${getRoundStep()}`));
+            else if (s) rows.push(note(`${icon('chart')} Escribe el costo para calcular con tu margen de ${getMarginPct()}%`));
+
+            // Autocompletar con la mejor sugerencia, sin pisar un precio escrito o elegido a mano
+            const best = (s && s.internet && s.internet !== 'loading' && s.internet !== 'skip' ? s.internet.price : null) || s?.history?.price || marginPrice;
+            if (best && (!priceInput.value || priceInput.dataset.auto === '1')) {
+                priceInput.value = best;
+                priceInput.dataset.auto = '1';
+            }
+
+            // Advertencia: vender bajo el costo
+            const price = parseInt(priceInput.value) || 0;
+            if (cost > 0 && price > 0 && price <= cost) rows.push(note(`${icon('alert')} El precio de venta no cubre el costo (${formatCLP(cost)}).`, 'ps-warn'));
+            else if (cost > 0 && price > 0) rows.push(note(`Ganancia por unidad: <strong>${formatCLP(price - cost)}</strong> (${Math.round((price - cost) / cost * 100)}% sobre el costo)`, 'ps-profit'));
+
+            box.innerHTML = rows.join('');
+            box.style.display = rows.length ? 'block' : 'none';
         }
 
         function buildProductName(p) {
@@ -1728,6 +1864,7 @@
 
             const token = ++lookupToken;
             setLookupStatus('loading', 'Buscando nombre del producto…');
+            startPriceSuggestions(code); // en paralelo con la búsqueda del nombre
             const result = await lookupBarcode(code);
             if (token !== lookupToken || barcodeInput.value.trim() !== code) return; // se escaneó otro código mientras tanto
 
@@ -1737,9 +1874,9 @@
                     nameInput.value = result.name;
                     nameInput.dataset.auto = '1';
                 }
-                setLookupStatus('ok', `✓ Encontrado en ${result.source}. Revisa el nombre y completa el precio.`);
+                setLookupStatus('ok', `✓ Encontrado en ${result.source}. Escribe el costo y revisa el precio sugerido.`);
                 playSound('success');
-                document.getElementById('prod-price').focus();
+                document.getElementById('prod-cost').focus();
             } else {
                 setLookupStatus('miss', navigator.onLine ? 'No encontrado en la base de datos. Escribe el nombre (se recordará para la próxima vez).' : 'Sin conexión a internet. Escribe el nombre manualmente.');
                 nameInput.focus();
@@ -2226,11 +2363,13 @@
             renderCart(); // el total cambia según el medio de pago (redondeo solo en efectivo)
         }
 
-        function saveProduct(e) {
+        async function saveProduct(e) {
             e.preventDefault();
             const barcode = document.getElementById('prod-barcode').value.trim();
             const name = document.getElementById('prod-name').value.trim();
             const price = parseInt(document.getElementById('prod-price').value);
+            const costVal = document.getElementById('prod-cost').value;
+            const cost = costVal ? parseInt(costVal) : null;
             const offerPriceVal = document.getElementById('prod-offer-price').value;
             const offerPrice = offerPriceVal ? parseInt(offerPriceVal) : null;
             const stock = parseInt(document.getElementById('prod-stock').value);
@@ -2242,6 +2381,12 @@
                 return;
             }
 
+            if (cost !== null && (isNaN(cost) || cost < 0)) {
+                playSound('error');
+                notify('El costo no es válido.', 'error');
+                return;
+            }
+
             // El código no puede pertenecer a otro producto distinto del que se está editando
             const clash = inventory.find(p => p.barcode === barcode && p.barcode !== editingBarcode);
             if (clash) {
@@ -2250,15 +2395,21 @@
                 return;
             }
 
-            if (editingBarcode) {
-                const idx = inventory.findIndex(p => p.barcode === editingBarcode);
-                if(idx > -1) { const oldStock = inventory[idx].stock; inventory[idx] = { ...inventory[idx], barcode, name, price, offerPrice, stock, minStock }; if (stock !== oldStock) recordStockMovement(inventory[idx], 'adjustment', stock-oldStock, stock, 'Edición directa de producto'); }
-            } else {
-                inventory.push({ barcode, name, price, offerPrice, stock, minStock }); recordStockMovement({ barcode, name }, 'entry', stock, stock, 'Stock inicial');
+            if (cost && price <= cost && !(await confirmDialog({ title: 'Precio bajo el costo', message: `Vas a vender "${name}" a ${formatCLP(price)} y te cuesta ${formatCLP(cost)}.\n¿Guardar de todas formas?`, confirmText: 'Guardar igual', cancelText: 'Revisar precio', variant: 'warning' }))) {
+                document.getElementById('prod-price').focus();
+                return;
             }
 
-            // Aprende el nombre tal como quedó (incluye correcciones hechas a mano)
-            if (!barcodeCatalog[barcode] || barcodeCatalog[barcode].name !== name) rememberBarcodeName(barcode, name);
+            if (editingBarcode) {
+                const idx = inventory.findIndex(p => p.barcode === editingBarcode);
+                if(idx > -1) { const oldStock = inventory[idx].stock; inventory[idx] = { ...inventory[idx], barcode, name, price, cost, offerPrice, stock, minStock }; if (stock !== oldStock) recordStockMovement(inventory[idx], 'adjustment', stock-oldStock, stock, 'Edición directa de producto'); }
+            } else {
+                inventory.push({ barcode, name, price, cost, offerPrice, stock, minStock }); recordStockMovement({ barcode, name }, 'entry', stock, stock, 'Stock inicial');
+            }
+
+            // Aprende nombre, precio y costo tal como quedaron (incluye correcciones hechas a mano)
+            const known = barcodeCatalog[barcode];
+            rememberBarcodeName(barcode, name, known && known.name === name ? known.source : 'Registro local', { price, cost });
             localStorage.setItem('pos_inventory', JSON.stringify(inventory));
             renderInventory();
             renderDashboard();
@@ -2276,9 +2427,14 @@
             document.getElementById('prod-barcode').value = prod.barcode;
             document.getElementById('prod-name').value = prod.name;
             document.getElementById('prod-price').value = prod.price;
+            document.getElementById('prod-price').dataset.auto = '';
+            document.getElementById('prod-cost').value = prod.cost ?? '';
             document.getElementById('prod-offer-price').value = prod.offerPrice || '';
             document.getElementById('prod-stock').value = prod.stock;
             document.getElementById('prod-min-stock').value = prod.minStock || 5;
+            // Al editar no se consulta internet: solo se muestra el cálculo con margen y la ganancia
+            priceSuggest = { code: barcode, internet: 'skip', history: null };
+            renderPriceSuggestions();
 
             document.getElementById('btn-cancel-edit').style.display = 'block';
             renderInventory(); // resalta la fila en edición
@@ -2289,7 +2445,10 @@
             document.getElementById('form-title').innerText = 'Registrar Producto';
             document.getElementById('product-form').reset();
             document.getElementById('prod-name').dataset.auto = '';
+            document.getElementById('prod-price').dataset.auto = '';
             lastLookupCode = '';
+            priceSuggest = null;
+            renderPriceSuggestions();
             setLookupStatus('', '');
             document.getElementById('btn-cancel-edit').style.display = 'none';
             renderInventory();
@@ -2801,7 +2960,9 @@
                 rut: document.getElementById('cfg-rut').value.trim(),
                 address: document.getElementById('cfg-address').value.trim(),
                 footer: document.getElementById('cfg-footer').value.trim(),
-                paperWidth: document.getElementById('cfg-paper').value
+                paperWidth: document.getElementById('cfg-paper').value,
+                marginPct: Math.max(0, parseFloat(document.getElementById('cfg-margin').value) || 0),
+                roundStep: parseInt(document.getElementById('cfg-round').value) || 10
             };
             localStorage.setItem('pos_config', JSON.stringify(storeConfig));
             applyPaperWidth();
@@ -2820,6 +2981,8 @@
         function loadConfigForm() {
             document.getElementById('cfg-footer').value = storeConfig.footer ?? '¡Gracias por su compra!';
             document.getElementById('cfg-paper').value = storeConfig.paperWidth === '80' ? '80' : '58';
+            document.getElementById('cfg-margin').value = getMarginPct();
+            document.getElementById('cfg-round').value = String(getRoundStep());
             document.getElementById('cfg-name').value = storeConfig.name || '';
             document.getElementById('cfg-rut').value = storeConfig.rut || '';
             document.getElementById('cfg-address').value = storeConfig.address || '';
@@ -2839,6 +3002,7 @@
             name: ['nombre', 'producto', 'nombreproducto', 'nombredelproducto', 'descripcion', 'detalle'],
             price: ['precio', 'precionormal', 'precioventa', 'preciodeventa', 'valor', 'pvp'],
             offerPrice: ['preciooferta', 'oferta'],
+            cost: ['costo', 'preciocosto', 'costounitario', 'preciocompra', 'preciodecompra', 'costoneto'],
             stock: ['stock', 'cantidad', 'existencia', 'unidades', 'stockdisponible'],
             minStock: ['stockminimo', 'minimo', 'stockmin', 'alertastockminimo']
         };
@@ -2873,11 +3037,11 @@
         function downloadImportTemplate() {
             if (!requireXLSX()) return;
             const ws = XLSX.utils.aoa_to_sheet([
-                ['Código', 'Nombre', 'Precio', 'Precio Oferta', 'Stock', 'Stock Mínimo'],
-                ['7801234567890', 'Ejemplo Bebida 1.5L', 1500, '', 24, 5],
-                ['7809876543210', 'Ejemplo Galletas 120g', 990, 850, 40, 10]
+                ['Código', 'Nombre', 'Costo', 'Precio', 'Precio Oferta', 'Stock', 'Stock Mínimo'],
+                ['7801234567890', 'Ejemplo Bebida 1.5L', 1100, 1500, '', 24, 5],
+                ['7809876543210', 'Ejemplo Galletas 120g', 650, 990, 850, 40, 10]
             ]);
-            ws['!cols'] = [{ wch: 16 }, { wch: 34 }, { wch: 10 }, { wch: 14 }, { wch: 8 }, { wch: 13 }];
+            ws['!cols'] = [{ wch: 16 }, { wch: 34 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 8 }, { wch: 13 }];
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'Productos');
             XLSX.writeFile(wb, 'Plantilla_Productos.xlsx');
@@ -2923,6 +3087,7 @@
                     name: String(get('name') ?? '').trim().slice(0, 80),
                     price: parseImportNumber(get('price')),
                     offerPrice: parseImportNumber(get('offerPrice')),
+                    cost: parseImportNumber(get('cost')),
                     stock: parseImportNumber(get('stock')),
                     minStock: parseImportNumber(get('minStock'))
                 };
@@ -2934,7 +3099,8 @@
                 if (/e\+/i.test(r.barcode)) return err('Código en notación científica: formatea la columna como Texto');
                 if (seen.has(r.barcode)) return err(`Código repetido (fila ${seen.get(r.barcode)})`);
                 seen.set(r.barcode, r.row);
-                if (Number.isNaN(r.price) || Number.isNaN(r.offerPrice) || Number.isNaN(r.stock) || Number.isNaN(r.minStock)) return err('Número inválido');
+                if (Number.isNaN(r.price) || Number.isNaN(r.offerPrice) || Number.isNaN(r.stock) || Number.isNaN(r.minStock) || Number.isNaN(r.cost)) return err('Número inválido');
+                if (r.cost !== null && r.cost < 0) return err('Costo negativo');
                 if (!existing && !r.name) return err('Falta el nombre');
                 if (!existing && (r.price === null || r.price <= 0)) return err('Falta el precio');
                 if ((r.price !== null && r.price < 0) || (r.stock !== null && r.stock < 0)) return err('Valores negativos');
@@ -2969,7 +3135,7 @@
             let added = 0, updated = 0;
             importRows.forEach(r => {
                 if (r.status === 'new') {
-                    const p = { barcode: r.barcode, name: r.name, price: r.price, offerPrice: r.offerPrice || null, stock: r.stock ?? 0, minStock: r.minStock || 5 };
+                    const p = { barcode: r.barcode, name: r.name, price: r.price, cost: r.cost, offerPrice: r.offerPrice || null, stock: r.stock ?? 0, minStock: r.minStock || 5 };
                     inventory.push(p);
                     recordStockMovement(p, 'entry', p.stock, p.stock, 'Importación Excel', false);
                     added++;
@@ -2979,6 +3145,7 @@
                     if (r.name) p.name = r.name;
                     if (r.price !== null) p.price = r.price;
                     if (r.offerPrice !== null) p.offerPrice = r.offerPrice || null;
+                    if (r.cost !== null) p.cost = r.cost;
                     if (p.offerPrice && p.offerPrice >= p.price) p.offerPrice = null; // oferta antigua quedó inválida con el nuevo precio
                     if (r.minStock) p.minStock = r.minStock;
                     if (r.stock !== null) {
@@ -2988,7 +3155,8 @@
                     }
                     updated++;
                 } else return;
-                barcodeCatalog[r.barcode] = { name: r.name, source: 'Importación Excel' };
+                const imported = inventory.find(x => x.barcode === r.barcode);
+                barcodeCatalog[r.barcode] = { ...barcodeCatalog[r.barcode], name: r.name, source: 'Importación Excel', price: imported?.price, cost: imported?.cost ?? null };
             });
             if (stockMovements.length > 2000) stockMovements = stockMovements.slice(-2000);
             localStorage.setItem('pos_stock_movements', JSON.stringify(stockMovements));
