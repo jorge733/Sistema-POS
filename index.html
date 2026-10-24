@@ -1090,6 +1090,16 @@
                         </div>
                         <div class="form-pair">
                             <div class="form-group">
+                                <label for="prod-author">Autor <small>libros</small></label>
+                                <input type="text" id="prod-author" maxlength="80" placeholder="Opcional" oninput="this.dataset.auto=''">
+                            </div>
+                            <div class="form-group">
+                                <label for="prod-publisher">Editorial <small>libros</small></label>
+                                <input type="text" id="prod-publisher" maxlength="60" placeholder="Opcional" oninput="this.dataset.auto=''">
+                            </div>
+                        </div>
+                        <div class="form-pair">
+                            <div class="form-group">
                                 <label for="prod-cost">Costo ($) <small>lo que pagas</small></label>
                                 <input type="number" id="prod-cost" min="0" placeholder="Opcional" oninput="renderPriceSuggestions()">
                             </div>
@@ -1231,6 +1241,11 @@
                             </div>
                         </div>
                         <p class="form-hint">Ej: con costo $1.000 y margen 30%, el precio sugerido es $1.300. Se usa cuando no hay precio en internet ni un precio anterior.</p>
+                        <div class="form-group">
+                            <label for="cfg-gbooks">Clave de Google Books <small>opcional, para libros</small></label>
+                            <input type="text" id="cfg-gbooks" autocomplete="off" spellcheck="false" placeholder="Sin clave: se usa solo Open Library">
+                        </div>
+                        <p class="form-hint">Los libros se buscan por ISBN en Open Library. Con una clave gratuita de Google Books (Google Cloud → API "Books API" → Credenciales) también se consulta Google, que tiene mejores títulos en español.</p>
                         <button type="submit" class="btn-pay" style="padding:10px;"><svg class="i"><use href="#i-save"/></svg> Guardar datos</button>
                     </form>
 
@@ -1468,7 +1483,7 @@
 
     <!-- MODAL IMPORTAR PRODUCTOS DESDE EXCEL -->
     <div id="import-modal" class="modal"><div class="modal-card">
-        <div class="modal-title-row"><div><h2><svg class="i"><use href="#i-upload"/></svg> Importar productos</h2><div style="color:var(--muted);font-size:.82rem;">Excel (.xlsx, .xls) o CSV con columnas: Código, Nombre, Precio, Stock (opcionales: Costo, Precio Oferta, Stock Mínimo)</div></div><button class="btn-soft" onclick="closeImportModal()">✕</button></div>
+        <div class="modal-title-row"><div><h2><svg class="i"><use href="#i-upload"/></svg> Importar productos</h2><div style="color:var(--muted);font-size:.82rem;">Excel (.xlsx, .xls) o CSV con columnas: Código o ISBN, Nombre o Título, Precio, Stock (opcionales: Autor, Editorial, Costo, Precio Oferta, Stock Mínimo)</div></div><button class="btn-soft" onclick="closeImportModal()">✕</button></div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
             <button class="btn-secondary" type="button" onclick="document.getElementById('import-file-input').click()"><svg class="i"><use href="#i-file"/></svg> Elegir archivo</button>
             <button class="btn-soft" type="button" onclick="downloadImportTemplate()"><svg class="i"><use href="#i-download"/></svg> Descargar plantilla</button>
@@ -1823,11 +1838,90 @@
             finally { clearTimeout(t); }
         }
 
-        // Devuelve { name, source } o null. Primero la base local; luego las bases abiertas en línea.
+        // Búsqueda sin distinguir mayúsculas ni tildes ("garcia marquez" encuentra "García Márquez")
+        const foldText = (s) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+        function productMatches(p, term) {
+            const t = foldText(term).trim();
+            if (!t) return true;
+            const haystack = foldText(`${p.name} ${p.barcode} ${p.author || ''} ${p.publisher || ''}`);
+            return t.split(/\s+/).every(word => haystack.includes(word)); // todas las palabras, en cualquier orden
+        }
+        // Línea secundaria bajo el nombre: autor · editorial · código
+        const productSubline = (p) => [p.author, p.publisher, p.barcode].filter(Boolean).map(esc).join(' · ');
+
+        // ===== Libros: búsqueda por ISBN =====
+        // Los libros traen como código de barras su ISBN-13 (EAN que empieza con 978 o 979; 978-956 = Chile)
+        const isIsbnCode = (code) => /^97[89]\d{10}$/.test(code);
+
+        // Convierte un ISBN-10 escrito a mano (ej. 956-12-3005-X) al ISBN-13 que lleva el código de barras del libro
+        function isbn10to13(raw) {
+            const s = String(raw || '').replace(/[-\s]/g, '').toUpperCase();
+            if (!/^\d{9}[\dX]$/.test(s)) return null;
+            // Dígito verificador del ISBN-10: evita convertir por error un código interno de 10 dígitos
+            const check = [...s].reduce((acc, c, i) => acc + (c === 'X' ? 10 : Number(c)) * (10 - i), 0);
+            if (check % 11 !== 0) return null;
+            const base = '978' + s.slice(0, 9);
+            const sum = [...base].reduce((acc, d, i) => acc + Number(d) * (i % 2 ? 3 : 1), 0);
+            return base + ((10 - (sum % 10)) % 10);
+        }
+        // Acepta ISBN con guiones o ISBN-10 y devuelve el código normalizado (o el original si no es ISBN)
+        function normalizeIsbnInput(raw) {
+            const trimmed = String(raw || '').trim();
+            const digits = trimmed.replace(/[-\s]/g, '');
+            if (/^97[89]\d{10}$/.test(digits)) return digits;
+            return isbn10to13(trimmed) || trimmed;
+        }
+
+        // Google Books sin clave usa una cuota compartida que suele estar agotada (error 429),
+        // por eso solo se consulta si la tienda configuró su propia clave gratuita en Ajustes
+        async function fetchGoogleBook(isbn) {
+            const key = (storeConfig.googleBooksKey || '').trim();
+            if (!key) return null;
+            try {
+                const r = await fetchWithTimeout(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}&maxResults=1&key=${encodeURIComponent(key)}`, 6000);
+                if (!r.ok) return null; // 429 = límite de consultas: se usa la otra fuente
+                const v = (await r.json()).items?.[0]?.volumeInfo;
+                if (!v || !v.title) return null;
+                return { title: v.subtitle && (v.title.length + v.subtitle.length) < 60 ? `${v.title}: ${v.subtitle}` : v.title, author: (v.authors || []).join(', '), publisher: v.publisher || '', year: (v.publishedDate || '').slice(0, 4), source: 'Google Books' };
+            } catch (e) { return null; }
+        }
+
+        async function fetchOpenLibraryBook(isbn) {
+            try {
+                const r = await fetchWithTimeout(`https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`, 6000);
+                if (!r.ok) return null;
+                const b = (await r.json())[`ISBN:${isbn}`];
+                if (!b || !b.title) return null;
+                const year = ((b.publish_date || '').match(/\d{4}/) || [''])[0];
+                return { title: b.subtitle && (b.title.length + b.subtitle.length) < 60 ? `${b.title}: ${b.subtitle}` : b.title, author: (b.authors || []).map(a => a.name).join(', '), publisher: (b.publishers || []).map(p => p.name).join(', '), year, source: 'Open Library' };
+            } catch (e) { return null; }
+        }
+
+        // Consulta ambas bases a la vez; prefiere Google Books (mejores títulos en español) y completa con Open Library
+        async function lookupBook(isbn) {
+            const [g, o] = await Promise.all([fetchGoogleBook(isbn), fetchOpenLibraryBook(isbn)]);
+            const best = g || o;
+            if (!best) return null;
+            return {
+                name: best.title.replace(/\s+/g, ' ').trim().slice(0, 80),
+                author: (best.author || o?.author || '').slice(0, 80),
+                publisher: (best.publisher || o?.publisher || '').slice(0, 60),
+                year: best.year || o?.year || '',
+                source: best.source
+            };
+        }
+
+        // Devuelve { name, source, author?, publisher? } o null. Primero la base local; luego las bases abiertas en línea.
         async function lookupBarcode(code) {
             code = String(code || '').trim();
             if (barcodeCatalog[code]) return barcodeCatalog[code];
             if (!/^\d{8,14}$/.test(code) || !navigator.onLine) return null;
+            if (isIsbnCode(code)) {
+                const book = await lookupBook(code);
+                if (!book) return null;
+                rememberBarcodeName(code, book.name, book.source, { author: book.author, publisher: book.publisher, year: book.year });
+                return barcodeCatalog[code];
+            }
             for (const src of PRODUCT_SOURCES) {
                 try {
                     const r = await fetchWithTimeout(`https://${src.host}/api/v2/product/${code}.json?fields=product_name,product_name_es,generic_name,generic_name_es,brands,quantity`);
@@ -1848,6 +1942,13 @@
         async function lookupForProductForm() {
             const barcodeInput = document.getElementById('prod-barcode');
             const nameInput = document.getElementById('prod-name');
+            // ISBN escrito con guiones o en formato de 10 dígitos → ISBN-13 (lo que lee el lector en el libro)
+            const raw = barcodeInput.value.trim();
+            const normalized = normalizeIsbnInput(raw);
+            if (normalized !== raw) {
+                barcodeInput.value = normalized;
+                if (isbn10to13(raw)) notify(`ISBN-10 convertido al ISBN-13 del código de barras: ${normalized}`, 'info');
+            }
             const code = barcodeInput.value.trim();
             // Enter y change pueden dispararse juntos al escanear: buscar una sola vez por código
             if (!code || code === editingBarcode || code === lastLookupCode) return;
@@ -1863,7 +1964,7 @@
             if (editingBarcode) return; // cambiando el código de un producto existente: no reemplazar su nombre
 
             const token = ++lookupToken;
-            setLookupStatus('loading', 'Buscando nombre del producto…');
+            setLookupStatus('loading', isIsbnCode(code) ? 'Buscando el libro por ISBN…' : 'Buscando nombre del producto…');
             startPriceSuggestions(code); // en paralelo con la búsqueda del nombre
             const result = await lookupBarcode(code);
             if (token !== lookupToken || barcodeInput.value.trim() !== code) return; // se escaneó otro código mientras tanto
@@ -1874,11 +1975,19 @@
                     nameInput.value = result.name;
                     nameInput.dataset.auto = '1';
                 }
-                setLookupStatus('ok', `✓ Encontrado en ${result.source}. Escribe el costo y revisa el precio sugerido.`);
+                // Libros: autor y editorial (mismo criterio: no pisar lo escrito a mano)
+                [['prod-author', result.author], ['prod-publisher', result.publisher]].forEach(([id, value]) => {
+                    const input = document.getElementById(id);
+                    if (value && (!input.value.trim() || input.dataset.auto === '1')) { input.value = value; input.dataset.auto = '1'; }
+                });
+                const bookInfo = result.author ? ` · ${result.author}${result.year ? ` (${result.year})` : ''}` : '';
+                setLookupStatus('ok', `✓ ${isIsbnCode(code) ? 'Libro encontrado' : 'Encontrado'} en ${result.source}${bookInfo}. Escribe el costo y revisa el precio sugerido.`);
                 playSound('success');
                 document.getElementById('prod-cost').focus();
             } else {
-                setLookupStatus('miss', navigator.onLine ? 'No encontrado en la base de datos. Escribe el nombre (se recordará para la próxima vez).' : 'Sin conexión a internet. Escribe el nombre manualmente.');
+                setLookupStatus('miss', !navigator.onLine ? 'Sin conexión a internet. Escribe el nombre manualmente.'
+                    : isIsbnCode(code) ? 'Libro no encontrado en Google Books ni Open Library. Escribe título y autor (se recordarán para la próxima vez).'
+                    : 'No encontrado en la base de datos. Escribe el nombre (se recordará para la próxima vez).');
                 nameInput.focus();
             }
         }
@@ -1971,7 +2080,7 @@
 
             if (!term) { searchMatches = []; dropdown.style.display = 'none'; return; }
 
-            searchMatches = inventory.filter(p => p.name.toLowerCase().includes(term) || p.barcode.toLowerCase().includes(term)).slice(0, 6);
+            searchMatches = inventory.filter(p => productMatches(p, term)).slice(0, 6);
 
             if (searchMatches.length > 0) {
                 dropdown.innerHTML = searchMatches.map((p, i) => {
@@ -1983,7 +2092,7 @@
                         <div class="search-result-item" data-index="${i}" onclick="selectSearchMatch(${jsArg(p.barcode)})">
                             <div>
                                 <strong>${esc(p.name)}</strong>
-                                <div style="font-size:0.75rem; color:#6b7280;">Código: ${esc(p.barcode)} | Stock: ${p.stock} u.</div>
+                                <div style="font-size:0.75rem; color:#6b7280;">${p.author ? `${esc(p.author)} · ` : ''}Código: ${esc(p.barcode)} | Stock: ${p.stock} u.</div>
                             </div>
                             <div style="font-weight:bold; color:var(--primary-dark);">${priceTag}</div>
                         </div>
@@ -2034,7 +2143,8 @@
             if (e.key === 'Enter') {
                 const term = this.value.trim().toLowerCase();
                 if (term) {
-                    const product = inventory.find(p => p.barcode.toLowerCase() === term || p.name.toLowerCase().includes(term));
+                    const isbnTerm = normalizeIsbnInput(term);
+                    const product = inventory.find(p => p.barcode.toLowerCase() === term || p.barcode === isbnTerm) || inventory.find(p => productMatches(p, term));
                     const displayBox = document.getElementById('price-display-box');
                     
                     if (product) {
@@ -2048,7 +2158,7 @@
                             : formatCLP(product.price);
 
                         displayBox.innerHTML = `
-                            <div class="price-product-name">${esc(product.name)}</div>
+                            <div class="price-product-name">${esc(product.name)}</div>${product.author ? `<div class="price-stock-info">${esc(product.author)}${product.publisher ? ` · ${esc(product.publisher)}` : ''}</div>` : ''}
                             <div class="price-tag">${priceHtml}</div>
                             <div class="price-stock-info">Código: <code>${esc(product.barcode)}</code> | ${stockBadge}</div>
                         `;
@@ -2368,6 +2478,8 @@
             const barcode = document.getElementById('prod-barcode').value.trim();
             const name = document.getElementById('prod-name').value.trim();
             const price = parseInt(document.getElementById('prod-price').value);
+            const author = document.getElementById('prod-author').value.trim();
+            const publisher = document.getElementById('prod-publisher').value.trim();
             const costVal = document.getElementById('prod-cost').value;
             const cost = costVal ? parseInt(costVal) : null;
             const offerPriceVal = document.getElementById('prod-offer-price').value;
@@ -2402,14 +2514,14 @@
 
             if (editingBarcode) {
                 const idx = inventory.findIndex(p => p.barcode === editingBarcode);
-                if(idx > -1) { const oldStock = inventory[idx].stock; inventory[idx] = { ...inventory[idx], barcode, name, price, cost, offerPrice, stock, minStock }; if (stock !== oldStock) recordStockMovement(inventory[idx], 'adjustment', stock-oldStock, stock, 'Edición directa de producto'); }
+                if(idx > -1) { const oldStock = inventory[idx].stock; inventory[idx] = { ...inventory[idx], barcode, name, author, publisher, price, cost, offerPrice, stock, minStock }; if (stock !== oldStock) recordStockMovement(inventory[idx], 'adjustment', stock-oldStock, stock, 'Edición directa de producto'); }
             } else {
-                inventory.push({ barcode, name, price, cost, offerPrice, stock, minStock }); recordStockMovement({ barcode, name }, 'entry', stock, stock, 'Stock inicial');
+                inventory.push({ barcode, name, author, publisher, price, cost, offerPrice, stock, minStock }); recordStockMovement({ barcode, name }, 'entry', stock, stock, 'Stock inicial');
             }
 
             // Aprende nombre, precio y costo tal como quedaron (incluye correcciones hechas a mano)
             const known = barcodeCatalog[barcode];
-            rememberBarcodeName(barcode, name, known && known.name === name ? known.source : 'Registro local', { price, cost });
+            rememberBarcodeName(barcode, name, known && known.name === name ? known.source : 'Registro local', { price, cost, author, publisher });
             localStorage.setItem('pos_inventory', JSON.stringify(inventory));
             renderInventory();
             renderDashboard();
@@ -2426,6 +2538,8 @@
             document.getElementById('form-title').innerText = 'Editar Producto';
             document.getElementById('prod-barcode').value = prod.barcode;
             document.getElementById('prod-name').value = prod.name;
+            document.getElementById('prod-author').value = prod.author || '';
+            document.getElementById('prod-publisher').value = prod.publisher || '';
             document.getElementById('prod-price').value = prod.price;
             document.getElementById('prod-price').dataset.auto = '';
             document.getElementById('prod-cost').value = prod.cost ?? '';
@@ -2444,7 +2558,7 @@
             editingBarcode = null;
             document.getElementById('form-title').innerText = 'Registrar Producto';
             document.getElementById('product-form').reset();
-            document.getElementById('prod-name').dataset.auto = '';
+            ['prod-name', 'prod-author', 'prod-publisher'].forEach(id => document.getElementById(id).dataset.auto = '');
             document.getElementById('prod-price').dataset.auto = '';
             lastLookupCode = '';
             priceSuggest = null;
@@ -2487,7 +2601,7 @@
             const query = document.getElementById('search-inventory').value.toLowerCase();
             const tbody = document.getElementById('inventory-table-body');
             
-            const filtered = inventory.filter(p => p.name.toLowerCase().includes(query) || p.barcode.toLowerCase().includes(query));
+            const filtered = inventory.filter(p => productMatches(p, query));
 
             tbody.innerHTML = filtered.map(p => {
                 let badge = '<span class="badge badge-ok">OK</span>';
@@ -2502,7 +2616,7 @@
                 const stockClass = p.stock === 0 ? 'stock-out' : p.stock <= (p.minStock || 5) ? 'stock-low' : '';
                 return `
                     <tr class="${editingBarcode === p.barcode ? 'row-editing' : ''}">
-                        <td><div class="cell-name">${esc(p.name)}</div><div class="cell-code">${esc(p.barcode)}</div></td>
+                        <td><div class="cell-name">${esc(p.name)}</div><div class="cell-code">${productSubline(p)}</div></td>
                         <td class="num">${formatCLP(p.price)}</td>
                         <td class="num">${offerDisplay}</td>
                         <td class="num ${stockClass}">${p.stock}</td>
@@ -2535,13 +2649,14 @@
                 }
                 const term = this.value.trim().toLowerCase();
                 if (term) {
-                    const product = inventory.find(p => p.barcode.toLowerCase() === term || p.name.toLowerCase() === term);
+                    const isbnTerm = normalizeIsbnInput(term); // ISBN con guiones o de 10 dígitos
+                    const product = inventory.find(p => p.barcode.toLowerCase() === term || p.barcode === isbnTerm || p.name.toLowerCase() === term);
                     if (product) {
                         addToCart(product.barcode);
                         this.value = '';
                         hideSearchDropdown();
                     } else {
-                        const matches = inventory.filter(p => p.name.toLowerCase().includes(term));
+                        const matches = inventory.filter(p => productMatches(p, term));
                         if (matches.length > 0) {
                             addToCart(matches[0].barcode);
                             this.value = '';
@@ -2631,7 +2746,7 @@
                 const code = jsArg(item.barcode);
                 return `
                     <tr class="${item.barcode === lastAddedBarcode ? 'row-flash' : ''}">
-                        <td><div class="cell-name">${esc(item.name)} ${isOffer ? '<span class="badge badge-promo">OFERTA</span>' : ''}</div><div class="cell-code">${esc(item.barcode)}</div></td>
+                        <td><div class="cell-name">${esc(item.name)} ${isOffer ? '<span class="badge badge-promo">OFERTA</span>' : ''}</div><div class="cell-code">${productSubline(item)}</div></td>
                         <td>${priceTag}</td>
                         <td style="text-align:center;">
                             <div class="qty-control">
@@ -2962,7 +3077,8 @@
                 footer: document.getElementById('cfg-footer').value.trim(),
                 paperWidth: document.getElementById('cfg-paper').value,
                 marginPct: Math.max(0, parseFloat(document.getElementById('cfg-margin').value) || 0),
-                roundStep: parseInt(document.getElementById('cfg-round').value) || 10
+                roundStep: parseInt(document.getElementById('cfg-round').value) || 10,
+                googleBooksKey: document.getElementById('cfg-gbooks').value.trim()
             };
             localStorage.setItem('pos_config', JSON.stringify(storeConfig));
             applyPaperWidth();
@@ -2983,6 +3099,7 @@
             document.getElementById('cfg-paper').value = storeConfig.paperWidth === '80' ? '80' : '58';
             document.getElementById('cfg-margin').value = getMarginPct();
             document.getElementById('cfg-round').value = String(getRoundStep());
+            document.getElementById('cfg-gbooks').value = storeConfig.googleBooksKey || '';
             document.getElementById('cfg-name').value = storeConfig.name || '';
             document.getElementById('cfg-rut').value = storeConfig.rut || '';
             document.getElementById('cfg-address').value = storeConfig.address || '';
@@ -2998,8 +3115,10 @@
 
         // ===== Importación de productos desde Excel / CSV =====
         const IMPORT_COLUMNS = {
-            barcode: ['codigo', 'codigodebarras', 'codigobarras', 'codbarras', 'cod', 'sku', 'barcode', 'ean'],
-            name: ['nombre', 'producto', 'nombreproducto', 'nombredelproducto', 'descripcion', 'detalle'],
+            barcode: ['codigo', 'codigodebarras', 'codigobarras', 'codbarras', 'cod', 'sku', 'barcode', 'ean', 'isbn', 'isbn13', 'isbn10'],
+            name: ['nombre', 'producto', 'nombreproducto', 'nombredelproducto', 'descripcion', 'detalle', 'titulo', 'title', 'libro'],
+            author: ['autor', 'autores', 'author', 'autora'],
+            publisher: ['editorial', 'publisher', 'sello', 'editor'],
             price: ['precio', 'precionormal', 'precioventa', 'preciodeventa', 'valor', 'pvp'],
             offerPrice: ['preciooferta', 'oferta'],
             cost: ['costo', 'preciocosto', 'costounitario', 'preciocompra', 'preciodecompra', 'costoneto'],
@@ -3083,8 +3202,10 @@
                 const get = (f) => cols[f] === undefined ? '' : row[cols[f]];
                 const r = {
                     row: headerIdx + i + 2,
-                    barcode: parseImportBarcode(get('barcode')),
+                    barcode: normalizeIsbnInput(parseImportBarcode(get('barcode'))),
                     name: String(get('name') ?? '').trim().slice(0, 80),
+                    author: String(get('author') ?? '').trim().slice(0, 80),
+                    publisher: String(get('publisher') ?? '').trim().slice(0, 60),
                     price: parseImportNumber(get('price')),
                     offerPrice: parseImportNumber(get('offerPrice')),
                     cost: parseImportNumber(get('cost')),
@@ -3093,6 +3214,8 @@
                 };
                 const existing = inventory.find(p => p.barcode === r.barcode);
                 if (!r.name && r.barcode) r.name = existing ? existing.name : (barcodeCatalog[r.barcode]?.name || '');
+                if (!r.author && r.barcode) r.author = existing?.author || barcodeCatalog[r.barcode]?.author || '';
+                if (!r.publisher && r.barcode) r.publisher = existing?.publisher || barcodeCatalog[r.barcode]?.publisher || '';
                 const err = (msg) => Object.assign(r, { status: 'error', msg });
 
                 if (!r.barcode) return /^\s*$/.test(row.join('')) ? null : err('Falta el código');
@@ -3135,7 +3258,7 @@
             let added = 0, updated = 0;
             importRows.forEach(r => {
                 if (r.status === 'new') {
-                    const p = { barcode: r.barcode, name: r.name, price: r.price, cost: r.cost, offerPrice: r.offerPrice || null, stock: r.stock ?? 0, minStock: r.minStock || 5 };
+                    const p = { barcode: r.barcode, name: r.name, author: r.author, publisher: r.publisher, price: r.price, cost: r.cost, offerPrice: r.offerPrice || null, stock: r.stock ?? 0, minStock: r.minStock || 5 };
                     inventory.push(p);
                     recordStockMovement(p, 'entry', p.stock, p.stock, 'Importación Excel', false);
                     added++;
@@ -3143,6 +3266,8 @@
                     const p = inventory.find(x => x.barcode === r.barcode);
                     if (!p) return;
                     if (r.name) p.name = r.name;
+                    if (r.author) p.author = r.author;
+                    if (r.publisher) p.publisher = r.publisher;
                     if (r.price !== null) p.price = r.price;
                     if (r.offerPrice !== null) p.offerPrice = r.offerPrice || null;
                     if (r.cost !== null) p.cost = r.cost;
@@ -3156,7 +3281,7 @@
                     updated++;
                 } else return;
                 const imported = inventory.find(x => x.barcode === r.barcode);
-                barcodeCatalog[r.barcode] = { ...barcodeCatalog[r.barcode], name: r.name, source: 'Importación Excel', price: imported?.price, cost: imported?.cost ?? null };
+                barcodeCatalog[r.barcode] = { ...barcodeCatalog[r.barcode], name: r.name, source: 'Importación Excel', price: imported?.price, cost: imported?.cost ?? null, author: imported?.author || '', publisher: imported?.publisher || '' };
             });
             if (stockMovements.length > 2000) stockMovements = stockMovements.slice(-2000);
             localStorage.setItem('pos_stock_movements', JSON.stringify(stockMovements));
