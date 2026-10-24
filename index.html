@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>POS Pro V2 (CLP)</title>
+    <title>Punto de Venta</title>
     <!-- Favicon en formato SVG vectorial -->
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='16' fill='%231f2937'/><rect x='14' y='38' width='36' height='14' rx='3' fill='%2316a34a'/><path d='M22 12h20v26H22z' fill='%23ffffff'/><path d='M26 18h12M26 24h12M26 30h8' stroke='%23374151' stroke-width='2.5' stroke-linecap='round'/></svg>">
     <!-- JsBarcode y XLSX CDN -->
@@ -615,7 +615,7 @@
         body{height:100dvh;overflow:hidden;letter-spacing:-.005em;}
         header{min-height:64px;background:linear-gradient(180deg,#111827 0%,#0f172a 100%);border-bottom:1px solid rgba(255,255,255,.08);box-shadow:0 3px 16px rgba(15,23,42,.18);}
         .logo{min-width:max-content;font-size:1.05rem;letter-spacing:-.02em;}
-        .logo::after{content:'OPERACIÓN LOCAL';font-size:.58rem;letter-spacing:.12em;color:#94a3b8;margin-left:2px;font-weight:700;}
+        .logo::after{content:none;font-size:.58rem;letter-spacing:.12em;color:#94a3b8;margin-left:2px;font-weight:700;}
         .nav-tabs{overflow-x:auto;scrollbar-width:none;white-space:nowrap;max-width:100%;padding:2px 0;}
         .nav-tabs::-webkit-scrollbar{display:none;}
         .tab-btn{min-height:38px;border:1px solid transparent;white-space:nowrap;}
@@ -686,14 +686,189 @@
         @media(max-width:430px){.dashboard-grid{grid-template-columns:1fr}.system-strip-left .system-pill:nth-child(2){display:none}.logo{font-size:.95rem}.tab-btn{padding:8px 10px}.payment-methods{grid-template-columns:1fr 1fr}}
     </style>
 
+    <style id="v3-ui">
+        /* ===== V3: interfaz más limpia y jerarquía clara ===== */
+        :root { --radius:12px; --ink:#0f172a; --ink-2:#334155; }
+        * { font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif; }
+        .receipt, .receipt * { font-family:'Courier New', Courier, monospace !important; }
+        .i { width:18px; height:18px; flex:none; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; vertical-align:-4px; }
+        button .i { margin-right:6px; }
+        .icon-btn .i { margin:0; width:16px; height:16px; }
+        .tab-btn, .hdr-btn, .btn-soft, .btn-secondary, .btn-pay, .btn-print, .btn-close-modal, .btn-ghost-danger, .pay-method-btn { display:inline-flex; align-items:center; justify-content:center; }
+        .tab-btn .i { opacity:.85; }
+        .modal-title-row h2 { display:flex; align-items:center; gap:8px; }
+        .modal-title-row h2 .i, .price-checker-card h2 .i { width:22px; height:22px; margin:0; color:var(--primary); }
+        .user-badge .i, .system-pill .i { width:15px; height:15px; vertical-align:-3px; }
+        .cart-empty-icon .i { width:44px; height:44px; stroke-width:1.5; }
+        .member-row label { display:inline-flex; align-items:center; gap:6px; }
+        .member-row label .i { width:16px; height:16px; }
+
+        /* Cabecera: un solo acento (azul) y acciones secundarias neutras */
+        .key-badge { background:rgba(15,23,42,.08); color:inherit; opacity:.75; font-weight:700; border-radius:5px; }
+        header .key-badge, .btn-pay .key-badge, .tab-btn .key-badge { background:rgba(255,255,255,.16); }
+        .tab-btn-accent { color:#fcd34d; border:1px solid rgba(252,211,77,.35) !important; }
+        .tab-btn-accent:hover { background:rgba(252,211,77,.12); color:#fde68a; }
+        .hdr-btn { background:rgba(255,255,255,.06); color:#e2e8f0; border:1px solid rgba(255,255,255,.14); padding:7px 12px; border-radius:8px; font-weight:700; font-size:.85rem; cursor:pointer; min-height:36px; white-space:nowrap; }
+        .hdr-btn:hover { background:rgba(255,255,255,.14); color:#fff; }
+        .hdr-btn-danger { color:#fca5a5; border-color:rgba(248,113,113,.35); }
+        .hdr-btn-danger:hover { background:rgba(220,38,38,.85); color:#fff; border-color:transparent; }
+        .user-badge { background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.1); }
+        /* Marca de la tienda */
+        .logo { gap:10px; font-weight:800; max-width:260px; }
+        .logo #brand-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .logo-mark { width:32px; height:32px; border-radius:9px; background:linear-gradient(135deg,#3b82f6,#1d4ed8); display:inline-flex; align-items:center; justify-content:center; flex:none; box-shadow:0 4px 10px rgba(37,99,235,.35); }
+        .logo-mark .i { width:18px; height:18px; color:#fff; margin:0; }
+        .login-mark { width:56px; height:56px; margin:0 auto 14px; border-radius:16px; background:linear-gradient(135deg,#3b82f6,#1d4ed8); display:flex; align-items:center; justify-content:center; box-shadow:0 10px 24px rgba(37,99,235,.35); }
+        .login-mark .i { width:28px; height:28px; color:#fff; }
+        .login-card { padding:34px 30px 28px; border-radius:18px; }
+        .login-card .btn-pay { width:100%; }
+        #net-status.offline { color:#b45309; font-weight:700; }
+        #net-status.offline .live-dot { background:#f59e0b; box-shadow:0 0 0 3px rgba(245,158,11,.18); }
+        /* El menú ocupa el espacio libre y nunca se monta sobre los botones de la derecha */
+        header .nav-tabs { flex:1 1 auto; min-width:0; }
+        header .header-right { flex:0 0 auto; }
+        @media(max-width:1500px){ .logo::after, .nav-tabs .key-badge { display:none; } .tab-btn { padding:8px 11px; } }
+        @media(max-width:1500px){ .user-badge { display:none; } .logo { max-width:210px; } } /* el usuario ya se muestra en la franja inferior */
+
+        /* Tarjetas y títulos */
+        .card { border-radius:var(--radius); padding:18px; }
+        .card-title { font-size:1.02rem; color:var(--ink); display:inline-flex; align-items:center; gap:8px; }
+        .card-header-flex { border-bottom:1px solid var(--border); padding-bottom:12px; margin-bottom:14px; gap:10px; }
+        .count-pill { background:#eef2ff; color:#3730a3; font-size:.75rem; font-weight:800; padding:2px 9px; border-radius:999px; font-variant-numeric:tabular-nums; }
+        .section-label { display:block; font-size:.72rem; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:6px; }
+
+        /* Botones */
+        .btn-ghost-danger { background:transparent; color:var(--danger); border:1px solid #fecaca; padding:7px 12px; border-radius:8px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:2px; white-space:nowrap; }
+        .btn-ghost-danger:hover { background:#fef2f2; border-color:#fca5a5; }
+        .btn-soft { border-radius:8px; white-space:nowrap; }
+        .icon-btn { width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--border); background:#fff; border-radius:8px; cursor:pointer; font-size:.9rem; font-weight:800; color:var(--ink-2); }
+        .icon-btn:hover { background:#f1f5f9; border-color:#cbd5e1; }
+        .icon-btn-danger { color:var(--danger); }
+        .icon-btn-danger:hover { background:#fef2f2; border-color:#fecaca; }
+        .row-actions { text-align:right; white-space:nowrap; }
+        .row-actions .icon-btn + .icon-btn { margin-left:4px; }
+
+        /* Celdas */
+        .cell-name { font-weight:600; color:var(--ink); }
+        .cell-code { font-size:.75rem; color:var(--muted); font-family:ui-monospace,Consolas,monospace; margin-top:1px; }
+        td.num { text-align:right; font-variant-numeric:tabular-nums; }
+        .stock-low { color:var(--warning); font-weight:800; }
+        .stock-out { color:var(--danger); font-weight:800; }
+        tr.row-editing td { background:#eff6ff !important; }
+        tr.row-editing td:first-child { box-shadow:inset 3px 0 0 var(--primary); }
+
+        /* Caja: búsqueda protagonista, socio compacto */
+        .scan-box input { height:54px; font-size:1.08rem; border-radius:10px; padding-left:46px; background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='2.4' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E") no-repeat 16px center; }
+        .scan-box input:focus { box-shadow:0 0 0 4px rgba(37,99,235,.15); }
+        .member-row { display:flex; align-items:center; gap:10px; margin:-4px 0 12px; }
+        .member-row label { font-size:.82rem; font-weight:700; color:var(--muted); white-space:nowrap; }
+        .member-row select { flex:1; min-width:0; padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:#fff; font-size:.9rem; }
+        .cart-table { min-width:0 !important; }
+        .cart-table td { padding:9px 10px; }
+        .qty-control { display:inline-flex; align-items:center; border:1px solid var(--border); border-radius:8px; overflow:hidden; background:#fff; }
+        .qty-control .btn-qty { width:30px; height:30px; border-radius:0; background:#f8fafc; font-size:1rem; }
+        .qty-control .btn-qty:hover { background:#e2e8f0; }
+        .qty-control span { min-width:34px; text-align:center; font-weight:800; font-variant-numeric:tabular-nums; }
+        @keyframes rowFlash { from { background:#dcfce7; } to { background:transparent; } }
+        tr.row-flash td { animation:rowFlash 1.1s ease-out; }
+        .cart-empty { display:flex; flex-direction:column; align-items:center; gap:4px; padding:34px 12px; color:var(--muted); text-align:center; }
+        .cart-empty-icon { font-size:2.2rem; opacity:.55; margin-bottom:4px; }
+        .cart-empty strong { color:var(--ink-2); }
+        .cart-empty span { font-size:.85rem; max-width:340px; }
+
+        /* Cobro: total grande y legible a distancia */
+        .total-hero { background:linear-gradient(160deg,#0f172a,#1e293b); color:#fff; border-radius:12px; padding:16px 18px; box-shadow:0 10px 24px rgba(15,23,42,.18); }
+        .total-hero-label { font-size:.72rem; letter-spacing:.1em; text-transform:uppercase; color:#94a3b8; font-weight:800; }
+        .total-hero-amount { font-size:2.6rem; font-weight:800; letter-spacing:-.03em; line-height:1.1; margin:4px 0 8px; font-variant-numeric:tabular-nums; }
+        .total-hero-lines { border-top:1px solid rgba(255,255,255,.12); padding-top:8px; }
+        .total-hero .summary-row { font-size:.88rem; color:#cbd5e1; margin-bottom:3px; }
+        .total-hero .hero-discount { color:#86efac; font-weight:700; }
+        .payment-input { border-radius:10px; height:50px; font-size:1.35rem; border:1px solid #cbd5e1; margin-top:0; }
+        .payment-input:focus { border-color:var(--primary); box-shadow:0 0 0 4px rgba(37,99,235,.12); outline:none; }
+        .change-box { display:flex; justify-content:space-between; align-items:center; margin-top:10px; padding:12px 14px; border-radius:10px; background:#f0fdf4; border:1px solid #bbf7d0; font-weight:800; }
+        .change-box span:first-child { color:#166534; font-size:.85rem; text-transform:uppercase; letter-spacing:.05em; }
+        .change-box #cart-change { font-size:1.45rem; font-variant-numeric:tabular-nums; }
+        .btn-pay { border-radius:10px; min-height:56px; font-size:1.12rem; gap:6px; }
+
+        /* Productos: barra de búsqueda a lo ancho */
+        .toolbar-actions { display:flex; gap:8px; flex-wrap:wrap; }
+        .search-field { margin-bottom:12px; }
+        .search-field input { width:100%; height:42px; padding:0 12px 0 40px; border:1px solid var(--border); border-radius:10px; font-size:.95rem; background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E") no-repeat 13px center; }
+        .search-field input:focus { border-color:var(--primary); box-shadow:0 0 0 4px rgba(37,99,235,.1); outline:none; }
+        #tab-inventario table { min-width:620px; }
+
+        /* Formularios */
+        .form-group input, .form-group select { border-color:#cbd5e1; border-radius:8px; }
+        .form-group input:focus, .form-group select:focus { border-color:var(--primary); box-shadow:0 0 0 3px rgba(37,99,235,.1); outline:none; }
+        .form-group label { font-size:.82rem; color:var(--ink-2); }
+
+        .backup-row strong { display:inline-flex; align-items:center; gap:6px; color:#166534; }
+        .backup-row strong .i { width:16px; height:16px; }
+        .backup-warn strong { color:#b45309; }
+        .backup-warn { background:#fffbeb; border:1px solid #fde68a !important; border-radius:10px; padding:10px 12px !important; margin-top:8px; }
+        .form-pair { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+        .form-group label small { font-weight:500; color:var(--muted); }
+        #form-title { margin-bottom:12px; }
+
+        /* Configuración: zona peligrosa separada */
+        .danger-zone { margin-top:18px; padding:14px 16px; border:1px solid #fecaca; background:#fff7f7; border-radius:10px; display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap; }
+        .danger-zone strong { color:#991b1b; }
+        .danger-zone div div { font-size:.82rem; color:var(--muted); margin-top:2px; max-width:520px; }
+
+        /* Pantallas medianas y móviles */
+        @media(max-width:1100px){ .tab-content, .pos-grid { height:auto; } } /* en una columna el contenido debe crecer, no quedar cortado */
+        @media(max-width:1000px){ .total-hero-amount{font-size:2.2rem} }
+        @media(max-width:700px){
+            .hdr-btn{font-size:0;padding:6px 9px}.hdr-btn::first-letter{font-size:1rem}
+            .card-header-flex>div:last-child{width:auto;overflow:visible}
+            .member-row{flex-direction:column;align-items:stretch;gap:4px}
+            .cart-table th:nth-child(2),.cart-table td:nth-child(2){display:none}
+            .total-hero-amount{font-size:2rem}
+        }
+    </style>
+
 </head>
 <body>
+    <!-- Iconos SVG (incrustados: funcionan sin internet) -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/></symbol>
+        <symbol id="i-cart" viewBox="0 0 24 24"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.7 12.3a2 2 0 0 0 2 1.7h7.6a2 2 0 0 0 2-1.6L21 8H6"/></symbol>
+        <symbol id="i-box" viewBox="0 0 24 24"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5"/><path d="M12 13v8"/></symbol>
+        <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/></symbol>
+        <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></symbol>
+        <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+        <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="7.5" cy="7.5" r="1.5"/></symbol>
+        <symbol id="i-wallet" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 10h18"/><path d="M16 15h2"/><path d="M6 6V5a2 2 0 0 1 2-2h9"/></symbol>
+        <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M8 13h8M8 17h5"/></symbol>
+        <symbol id="i-power" viewBox="0 0 24 24"><path d="M12 3v9"/><path d="M6.3 6.3a8 8 0 1 0 11.4 0"/></symbol>
+        <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+        <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7"/><path d="M18 14a6 6 0 0 1 3.5 6"/></symbol>
+        <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+        <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/></symbol>
+        <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="m6 7 1 13h10l1-13"/></symbol>
+        <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+        <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></symbol>
+        <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13 7 4 4"/></symbol>
+        <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></symbol>
+        <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></symbol>
+        <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></symbol>
+        <symbol id="i-cash" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></symbol>
+        <symbol id="i-card" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M6 15h4"/></symbol>
+        <symbol id="i-save" viewBox="0 0 24 24"><path d="M5 3h11l3 3v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M7 3v5h8"/><path d="M7 21v-7h10v7"/></symbol>
+        <symbol id="i-printer" viewBox="0 0 24 24"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/></symbol>
+        <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="m11 12 9-9"/><path d="m17 6 3 3"/></symbol>
+        <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+        <symbol id="i-stock" viewBox="0 0 24 24"><path d="M12 4v8M8 8h8"/><path d="M8 18h8"/></symbol>
+        <symbol id="i-store" viewBox="0 0 24 24"><path d="M3 9l1.5-5h15L21 9"/><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"/><path d="M5 12v9h14v-9"/><path d="M10 21v-5h4v5"/></symbol>
+        <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h.01"/></symbol>
+    </svg>
 
     <!-- PANTALLA DE INICIO DE SESIÓN -->
     <div id="login-screen">
         <div class="login-card">
-            <h2>🛒 POS Caja</h2>
-            <p>Selecciona tu usuario e ingresa tu clave</p>
+            <div class="login-mark"><svg class="i"><use href="#i-store"/></svg></div>
+            <h2 id="login-store-name">Punto de Venta</h2>
+            <p>Selecciona tu usuario e ingresa tu contraseña para abrir la caja.</p>
             <form onsubmit="handleLogin(event)">
                 <div class="form-group">
                     <label>Vendedor / Cajero:</label>
@@ -701,41 +876,41 @@
                 </div>
                 <div class="form-group">
                     <label>Contraseña:</label>
-                    <input type="password" id="user-password" required placeholder="Clave personal (ej: 1234)">
+                    <input type="password" id="user-password" required placeholder="Tu contraseña" autocomplete="current-password">
                 </div>
-                <button type="submit" class="btn-pay" style="padding:12px; margin-top:10px;">🔓 Iniciar Sesión <span class="key-badge">Enter</span></button>
+                <button type="submit" class="btn-pay" style="padding:12px; margin-top:10px;"><svg class="i"><use href="#i-lock"/></svg> Iniciar sesión <span class="key-badge">Enter</span></button>
             </form>
         </div>
     </div>
 
     <!-- ENCABEZADO -->
     <header>
-        <div class="logo">🛒 POS Pro V2 (CLP)</div>
+        <div class="logo"><span class="logo-mark"><svg class="i"><use href="#i-store"/></svg></span><span id="brand-name">Punto de Venta</span></div>
         <div class="nav-tabs">
-            <button class="tab-btn active" id="tab-btn-dashboard" onclick="switchTab('dashboard')">🏠 Resumen</button>
-            <button class="tab-btn" id="tab-btn-caja" onclick="switchTab('caja')">💻 Caja <span class="key-badge">F1</span></button>
-            <button class="tab-btn" id="tab-btn-inventario" onclick="switchTab('inventario')">📦 Productos <span class="key-badge">F2</span></button>
-            <button class="tab-btn" id="tab-btn-ventas" onclick="switchTab('ventas')">📊 Historial <span class="key-badge">F3</span></button>
-            <button class="tab-btn" id="tab-btn-config" onclick="switchTab('config')">⚙️ Config. <span class="key-badge">F4</span></button>
-            <button class="tab-btn" style="background-color: var(--warning); color: white;" onclick="openPriceChecker()">🔍 Consultar Precio <span class="key-badge">F11</span></button>
+            <button class="tab-btn active" id="tab-btn-dashboard" onclick="switchTab('dashboard')"><svg class="i"><use href="#i-home"/></svg> Resumen</button>
+            <button class="tab-btn" id="tab-btn-caja" onclick="switchTab('caja')"><svg class="i"><use href="#i-cart"/></svg> Caja <span class="key-badge">F1</span></button>
+            <button class="tab-btn" id="tab-btn-inventario" onclick="switchTab('inventario')"><svg class="i"><use href="#i-box"/></svg> Productos <span class="key-badge">F2</span></button>
+            <button class="tab-btn" id="tab-btn-ventas" onclick="switchTab('ventas')"><svg class="i"><use href="#i-chart"/></svg> Historial <span class="key-badge">F3</span></button>
+            <button class="tab-btn" id="tab-btn-config" onclick="switchTab('config')"><svg class="i"><use href="#i-settings"/></svg> Ajustes <span class="key-badge">F4</span></button>
+            <button class="tab-btn tab-btn-accent" onclick="openPriceChecker()"><svg class="i"><use href="#i-tag"/></svg> Consultar precio <span class="key-badge">F11</span></button>
         </div>
         <div class="header-right">
-            <button class="btn-secondary" style="background-color:#0f766e;" onclick="openCashControlModal()" title="Apertura, movimientos y cierre de caja">💰 Caja</button>
-            <button class="btn-secondary" style="background-color:#059669;" onclick="openArqueoModal()" title="Ver resumen diario de ventas">📊 Cierre Z</button>
+            <button class="hdr-btn" onclick="openCashControlModal()" title="Apertura, movimientos y cierre de caja"><svg class="i"><use href="#i-wallet"/></svg> Turno</button>
+            <button class="hdr-btn" onclick="openArqueoModal()" title="Ver resumen diario de ventas"><svg class="i"><use href="#i-file"/></svg> Cierre Z</button>
             <div class="user-badge">
-                👤 <span id="current-user-display">Vendedor</span>
+                <svg class="i"><use href="#i-user"/></svg> <span id="current-user-display">Vendedor</span>
             </div>
-            <button class="btn-logout" onclick="logout()">Cerrar Sesión <span class="key-badge">F9</span></button>
+            <button class="hdr-btn hdr-btn-danger" onclick="logout()" title="Cerrar sesión (F9)"><svg class="i"><use href="#i-power"/></svg> Salir</button>
         </div>
     </header>
     <div class="system-strip" id="system-strip">
         <div class="system-strip-left">
-            <span class="system-pill"><span class="live-dot"></span><span>Terminal operativo</span></span>
+            <span class="system-pill" id="net-status"><span class="live-dot"></span><span>En línea</span></span>
             <span class="system-pill">Sucursal: <strong id="system-store-name">POS Pro</strong></span>
         </div>
         <div class="system-strip-right">
             <span class="system-pill" id="system-role-label">Sesión local</span>
-            <span class="system-pill">🕒 <strong id="system-clock">--:--:--</strong></span>
+            <span class="system-pill"><svg class="i"><use href="#i-clock"/></svg> <strong id="system-clock">--:--:--</strong></span>
         </div>
     </div>
 
@@ -744,7 +919,7 @@
         <div id="tab-dashboard" class="tab-content active">
             <div class="card-header-flex" style="border:none; margin-bottom:12px;">
                 <div><div class="card-title" style="font-size:1.35rem;">Resumen del negocio</div><div style="color:var(--muted);font-size:.86rem;margin-top:3px;">Indicadores del día y alertas operativas</div></div>
-                <button class="btn-soft" onclick="renderDashboard()">↻ Actualizar</button>
+                <button class="btn-soft" onclick="renderDashboard()"><svg class="i"><use href="#i-refresh"/></svg> Actualizar</button>
             </div>
             <div class="dashboard-grid">
                 <div class="kpi-card"><div class="kpi-label">Ventas de hoy</div><div class="kpi-value" id="kpi-sales">$0</div><div class="kpi-help" id="kpi-sales-count">0 transacciones</div></div>
@@ -763,34 +938,34 @@
             <div class="pos-grid">
                 <div class="card">
                     <div class="card-header-flex">
-                        <span class="card-title">Venta Actual</span>
-                        <button class="btn-delete" onclick="clearCart()">Limpiar Carro <span class="key-badge">F6</span></button>
+                        <span class="card-title">Venta actual <span class="count-pill" id="cart-count-pill">0</span></span>
+                        <button class="btn-ghost-danger" onclick="clearCart()" title="Vaciar la venta (F6)"><svg class="i"><use href="#i-trash"/></svg> Vaciar <span class="key-badge">F6</span></button>
+                    </div>
+
+                    <div class="scan-container">
+                        <div class="scan-box">
+                            <input type="text" id="barcode-input" placeholder="Escanea un código o escribe el nombre del producto…" autofocus oninput="handleSearchInput(this.value)" autocomplete="off">
+                        </div>
+                        <div id="search-dropdown" class="search-results-dropdown"></div>
                     </div>
 
                     <!-- SELECCIÓN DE SOCIO/A -->
-                    <div class="form-group" style="margin-bottom: 10px;">
-                        <label>Socio/a del Almacén (Opcional):</label>
+                    <div class="member-row">
+                        <label for="cart-member-select"><svg class="i"><use href="#i-users"/></svg> Socio/a</label>
                         <select id="cart-member-select" onchange="applyMemberDiscount()">
                             <option value="">-- Cliente General (Sin Descuento) --</option>
                         </select>
                     </div>
 
-                    <div class="scan-container">
-                        <div class="scan-box">
-                            <input type="text" id="barcode-input" placeholder="🔍 Escribe nombre o escanea código... (Presiona Esc para enfocar)" autofocus oninput="handleSearchInput(this.value)" autocomplete="off">
-                        </div>
-                        <div id="search-dropdown" class="search-results-dropdown"></div>
-                    </div>
                     <div class="table-container">
-                        <table>
+                        <table class="cart-table">
                             <thead>
                                 <tr>
-                                    <th>Código</th>
                                     <th>Producto</th>
                                     <th>Precio</th>
-                                    <th>Cant.</th>
-                                    <th>Subtotal</th>
-                                    <th>Acción</th>
+                                    <th style="text-align:center;">Cant.</th>
+                                    <th style="text-align:right;">Subtotal</th>
+                                    <th></th>
                                 </tr>
                             </thead>
                             <tbody id="cart-table-body"></tbody>
@@ -799,35 +974,25 @@
                 </div>
 
                 <div class="card">
-                    <div class="card-title">Cobro</div>
-                    <div class="summary-box">
-                        <div class="summary-row">
-                            <span>Artículos:</span>
-                            <span id="cart-count">0</span>
-                        </div>
-                        <div class="summary-row" id="member-discount-row" style="display:none; color: var(--success); font-weight: bold;">
-                            <span>Descuento Socio/a:</span>
-                            <span id="cart-member-discount">-$0</span>
-                        </div>
-                        <div class="summary-row" id="cash-rounding-row" style="display:none; color: var(--muted); font-size: .9rem;" title="Ley 20.956: pagos en efectivo se redondean a la decena">
-                            <span>Redondeo efectivo:</span>
-                            <span id="cart-cash-rounding">$0</span>
-                        </div>
-                        <div class="summary-row total">
-                            <span>TOTAL:</span>
-                            <span id="cart-total">$0</span>
+                    <div class="total-hero">
+                        <div class="total-hero-label">Total a pagar</div>
+                        <div class="total-hero-amount" id="cart-total">$0</div>
+                        <div class="total-hero-lines">
+                            <div class="summary-row"><span>Artículos</span><span id="cart-count">0</span></div>
+                            <div class="summary-row" id="member-discount-row" style="display:none;"><span>Descuento socio/a</span><span id="cart-member-discount" class="hero-discount">-$0</span></div>
+                            <div class="summary-row" id="cash-rounding-row" style="display:none;" title="Ley 20.956: pagos en efectivo se redondean a la decena"><span>Redondeo efectivo</span><span id="cart-cash-rounding">$0</span></div>
                         </div>
                     </div>
 
                     <!-- MÉTODOS DE PAGO PRINCIPALES -->
-                    <div style="margin-top: 15px;">
-                        <label style="font-size: 0.85rem; font-weight: bold;">Método de Pago:</label>
+                    <div style="margin-top: 16px;">
+                        <label class="section-label">Método de pago</label>
                         <div class="payment-methods">
                             <button type="button" class="pay-method-btn selected" id="method-efectivo" onclick="selectPaymentMethod('Efectivo')">
-                                💵 Efectivo <span class="key-badge">F7</span>
+                                <svg class="i"><use href="#i-cash"/></svg> Efectivo <span class="key-badge">F7</span>
                             </button>
                             <button type="button" class="pay-method-btn" id="method-tarjeta" onclick="selectPaymentMethod('Tarjeta')">
-                                💳 Tarjeta <span class="key-badge">F8</span>
+                                <svg class="i"><use href="#i-card"/></svg> Tarjeta <span class="key-badge">F8</span>
                             </button>
                         </div>
                     </div>
@@ -837,15 +1002,15 @@
                         <div class="form-group">
                             <label style="color: var(--primary-dark);">Tipo de Tarjeta:</label>
                             <select id="card-type-select" style="border: 2px solid var(--primary); font-weight: bold;">
-                                <option value="Tarjeta Débito">💳 Débito</option>
-                                <option value="Tarjeta Crédito">💳 Crédito</option>
+                                <option value="Tarjeta Débito">Débito</option>
+                                <option value="Tarjeta Crédito">Crédito</option>
                             </select>
                         </div>
                     </div>
 
                     <!-- CAMPO MONTO Y VUELTO EN EFECTIVO -->
-                    <div id="cash-payment-section" style="margin-top: 15px;">
-                        <label style="font-size: 0.85rem; font-weight: bold;">Monto Recibido (CLP):</label>
+                    <div id="cash-payment-section" style="margin-top: 14px;">
+                        <label class="section-label" for="payment-amount">Monto recibido</label>
                         <input type="number" id="payment-amount" class="payment-input" placeholder="0" min="0" oninput="calculateChange()">
                         <div class="quick-cash">
                             <button type="button" onclick="payExact()">Exacto</button>
@@ -856,15 +1021,13 @@
                             <button type="button" onclick="setPaymentAmount(20000)">$20.000</button>
                         </div>
 
-                        <div class="summary-box" style="margin-top: 10px;">
-                            <div class="summary-row" style="font-size: 1.1rem; font-weight: bold;">
-                                <span>Vuelto / Cambio:</span>
-                                <span id="cart-change" style="color: var(--success);">$0</span>
-                            </div>
+                        <div class="change-box">
+                            <span>Vuelto</span>
+                            <span id="cart-change" style="color: var(--success);">$0</span>
                         </div>
                     </div>
 
-                    <button class="btn-pay" onclick="processPayment()">✅ FINALIZAR Y EMITIR TICKET <span class="key-badge">F5 / F12</span></button>
+                    <button class="btn-pay" onclick="processPayment()"><svg class="i"><use href="#i-check"/></svg> Cobrar <span class="key-badge">F5</span></button>
                 </div>
             </div>
         </div>
@@ -884,48 +1047,52 @@
                             <label>Nombre del Producto</label>
                             <input type="text" id="prod-name" required placeholder="Se completa al escanear, o escríbelo" oninput="this.dataset.auto=''">
                         </div>
-                        <div class="form-group">
-                            <label>Precio Normal (CLP)</label>
-                            <input type="number" id="prod-price" required min="0" placeholder="Ej: 1500">
+                        <div class="form-pair">
+                            <div class="form-group">
+                                <label>Precio normal ($)</label>
+                                <input type="number" id="prod-price" required min="0" placeholder="1500">
+                            </div>
+                            <div class="form-group">
+                                <label>Precio oferta ($) <small>opcional</small></label>
+                                <input type="number" id="prod-offer-price" min="0" placeholder="Sin oferta">
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label>Precio Oferta (CLP - Opcional)</label>
-                            <input type="number" id="prod-offer-price" min="0" placeholder="Ej: 1200 (dejar vacío si no hay oferta)">
+                        <div class="form-pair">
+                            <div class="form-group">
+                                <label>Stock disponible</label>
+                                <input type="number" id="prod-stock" required min="0" placeholder="50">
+                            </div>
+                            <div class="form-group">
+                                <label>Alerta stock mínimo</label>
+                                <input type="number" id="prod-min-stock" required min="1" value="5">
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label>Stock Disponible</label>
-                            <input type="number" id="prod-stock" required min="0" placeholder="Ej: 50">
-                        </div>
-                        <div class="form-group">
-                            <label>Alerta Stock Mínimo</label>
-                            <input type="number" id="prod-min-stock" required min="1" value="5">
-                        </div>
-                        <button type="submit" class="btn-pay" style="padding:10px; margin-top:5px;">💾 Guardar Producto</button>
+                        <button type="submit" class="btn-pay" style="padding:10px; margin-top:5px;"><svg class="i"><use href="#i-save"/></svg> Guardar producto</button>
                         <button type="button" class="btn-secondary" id="btn-cancel-edit" style="width:100%; margin-top:5px; display:none;" onclick="cancelEdit()">Cancelar Edición</button>
                     </form>
                 </div>
 
                 <div class="card">
                     <div class="card-header-flex">
-                        <span class="card-title">Catálogo de Productos</span>
-                        <div style="display: flex; gap: 10px; align-items: center;">
-                            <button class="btn-soft" onclick="openImportModal()" title="Cargar productos desde Excel o CSV">📥 Importar Excel</button>
-                            <button class="btn-soft" onclick="openStockMovementsModal()">📋 Movimientos</button>
-                            <button class="btn-warning" onclick="resetAllStock()">🔄 Reiniciar Stock a 0 <span class="key-badge">F10</span></button>
-                            <input type="text" id="search-inventory" placeholder="🔍 Buscar por nombre o código..." oninput="renderInventory()" style="padding:6px; border-radius:4px; border:1px solid #ccc; width: 220px;">
+                        <span class="card-title">Catálogo <span class="count-pill" id="inventory-count-pill">0</span></span>
+                        <div class="toolbar-actions">
+                            <button class="btn-soft" onclick="openImportModal()" title="Cargar productos desde Excel o CSV"><svg class="i"><use href="#i-upload"/></svg> Importar</button>
+                            <button class="btn-soft" onclick="openStockMovementsModal()"><svg class="i"><use href="#i-list"/></svg> Movimientos</button>
                         </div>
+                    </div>
+                    <div class="search-field">
+                        <input type="text" id="search-inventory" placeholder="Buscar por nombre o código…" oninput="renderInventory()" autocomplete="off">
                     </div>
                     <div class="table-container">
                         <table>
                             <thead>
                                 <tr>
-                                    <th>Código</th>
                                     <th>Producto</th>
-                                    <th>Precio Normal</th>
-                                    <th>Precio Oferta</th>
-                                    <th>Stock</th>
+                                    <th style="text-align:right;">Precio</th>
+                                    <th style="text-align:right;">Oferta</th>
+                                    <th style="text-align:right;">Stock</th>
                                     <th>Estado</th>
-                                    <th>Acción</th>
+                                    <th style="text-align:right;">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody id="inventory-table-body"></tbody>
@@ -947,7 +1114,7 @@
                         <div class="filter-mini"><label>Medio</label><select id="sales-filter-method" onchange="renderSales()"><option value="">Todos</option><option>Efectivo</option><option>Tarjeta Débito</option><option>Tarjeta Crédito</option></select></div>
                         <div class="filter-mini"><label>Estado</label><select id="sales-filter-status" onchange="renderSales()"><option value="">Todos</option><option value="ok">Completadas</option><option value="canceled">Anuladas</option></select></div>
                         <button class="btn-soft" onclick="clearSalesFilters()">Limpiar</button>
-                        <button class="btn-secondary" onclick="exportSalesToExcel()">📥 Excel</button>
+                        <button class="btn-secondary" onclick="exportSalesToExcel()"><svg class="i"><use href="#i-download"/></svg> Excel</button>
                     </div>
                 </div>
                 <div id="sales-metrics" class="metric-strip"><div><small>Transacciones</small><strong id="hist-count">0</strong></div><div><small>Total período</small><strong id="hist-total">$0</strong></div><div><small>Ticket promedio</small><strong id="hist-average">$0</strong></div><div><small>Anuladas</small><strong id="hist-canceled">0</strong></div></div>
@@ -991,7 +1158,18 @@
                             <label>Dirección / Ciudad</label>
                             <input type="text" id="cfg-address" placeholder="Ej: Av. Principal 123">
                         </div>
-                        <button type="submit" class="btn-pay" style="padding:10px;">💾 Guardar Datos</button>
+                        <div class="form-group">
+                            <label>Mensaje al pie del comprobante</label>
+                            <input type="text" id="cfg-footer" maxlength="80" placeholder="Ej: ¡Gracias por su compra!">
+                        </div>
+                        <div class="form-group">
+                            <label>Ancho del papel de la impresora</label>
+                            <select id="cfg-paper">
+                                <option value="58">58 mm (impresora térmica pequeña)</option>
+                                <option value="80">80 mm (impresora térmica estándar)</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn-pay" style="padding:10px;"><svg class="i"><use href="#i-save"/></svg> Guardar datos</button>
                     </form>
 
                     <div class="card-title" style="margin-top:25px;">Gestión de Socios/as del Almacén</div>
@@ -1008,7 +1186,7 @@
                             <label>% Descuento Socio</label>
                             <input type="number" id="new-member-discount" required min="1" max="100" value="10" placeholder="Ej: 10">
                         </div>
-                        <button type="submit" class="btn-pay" style="padding:10px;">🤝 Registrar Socio/a</button>
+                        <button type="submit" class="btn-pay" style="padding:10px;"><svg class="i"><use href="#i-users"/></svg> Registrar socio/a</button>
                     </form>
                     <div style="margin-top: 15px;" class="table-container">
                         <table>
@@ -1041,9 +1219,9 @@
                         </div>
                         <div class="form-group">
                             <label>Contraseña Acceso</label>
-                            <input type="password" id="new-user-pass" required placeholder="Ej: 1234">
+                            <input type="password" id="new-user-pass" required minlength="4" autocomplete="new-password" placeholder="Mínimo 4 caracteres">
                         </div>
-                        <button type="submit" class="btn-secondary" style="width:100%; padding:10px;">➕ Registrar Usuario</button>
+                        <button type="submit" class="btn-secondary" style="width:100%; padding:10px;"><svg class="i"><use href="#i-user"/></svg> Registrar usuario</button>
                     </form>
                     <div style="margin-top: 15px;" class="table-container">
                         <table>
@@ -1063,9 +1241,16 @@
                 <div class="card-title">Respaldo y mantenimiento</div>
                 <p style="color:var(--muted);font-size:.85rem;margin:7px 0 14px;">Guarda o restaura productos, ventas, socios, usuarios, movimientos y configuración de esta instalación.</p>
                 <div style="display:flex;gap:10px;flex-wrap:wrap;">
-                    <button class="btn-secondary" type="button" onclick="exportBackup()">⬇️ Exportar respaldo JSON</button>
-                    <button class="btn-soft" type="button" onclick="document.getElementById('backup-file-input').click()">⬆️ Restaurar respaldo</button>
+                    <button class="btn-secondary" type="button" onclick="exportBackup()"><svg class="i"><use href="#i-download"/></svg> Exportar respaldo</button>
+                    <button class="btn-soft" type="button" onclick="document.getElementById('backup-file-input').click()"><svg class="i"><use href="#i-upload"/></svg> Restaurar respaldo</button>
                     <input id="backup-file-input" type="file" accept="application/json,.json" style="display:none" onchange="importBackup(this.files[0])">
+                </div>
+                <div class="danger-zone">
+                    <div>
+                        <strong>Reiniciar stock a 0</strong>
+                        <div>Deja en cero el stock de todos los productos (queda registrado en Movimientos). Úsalo solo antes de un inventario completo.</div>
+                    </div>
+                    <button class="btn-ghost-danger" type="button" onclick="resetAllStock()"><svg class="i"><use href="#i-refresh"/></svg> Reiniciar stock <span class="key-badge">F10</span></button>
                 </div>
             </div>
         </div>
@@ -1090,7 +1275,7 @@
                 <div class="summary-row total" style="font-size: 1rem; padding-top: 4px;"><span>TOTAL DÍA:</span><span id="z-total">$0</span></div>
             </div>
             <div class="receipt-divider"></div>
-            <button class="btn-pay no-print" onclick="window.print()" style="padding: 10px; font-size: 1rem;">🖨️ Imprimir Reporte Z</button>
+            <button class="btn-pay no-print" onclick="window.print()" style="padding: 10px; font-size: 1rem;"><svg class="i"><use href="#i-printer"/></svg> Imprimir reporte Z</button>
             <button class="btn-close-modal no-print" onclick="closeArqueoModal()">Cerrar / Volver</button>
         </div>
     </div>
@@ -1098,16 +1283,18 @@
     <!-- MODAL BOLETA IMPRESIÓN PROPORCIONAL Y SIMÉTRICA -->
     <div id="receipt-modal" class="modal">
         <div class="receipt">
-            <!-- RECUADRO FISCAL SII -->
+            <div class="receipt-header">
+                <h3 id="rcp-store-name" style="font-size: 0.95rem; text-transform: uppercase;">MI TIENDA</h3>
+                <div style="font-size: 0.75rem;" id="rcp-store-rut-line">R.U.T.: <span id="rcp-store-rut"></span></div>
+                <div style="font-size: 0.75rem;" id="rcp-store-address"></div>
+            </div>
+
+            <!-- Comprobante interno: NO es boleta electrónica (el sistema no está conectado al SII) -->
             <div class="receipt-sii-box">
-                <div style="font-size: 0.85rem;">R.U.T.: <span id="rcp-store-rut">76.543.210-K</span></div>
-                <div style="font-size: 0.9rem; margin: 2px 0;">BOLETA ELECTRÓNICA</div>
-                <div style="font-size: 0.7rem;">S.I.I. - SANTIAGO CENTRO</div>
+                <div style="font-size: 0.9rem;">COMPROBANTE DE VENTA</div>
             </div>
 
             <div class="receipt-header">
-                <h3 id="rcp-store-name" style="font-size: 0.95rem; text-transform: uppercase;">MI TIENDA</h3>
-                <div style="font-size: 0.75rem;" id="rcp-store-address"></div>
                 <div class="receipt-divider"></div>
                 <div style="display: flex; justify-content: space-between; font-size: 0.75rem;">
                     <span>Fecha: <span id="rcp-date"></span></span>
@@ -1172,22 +1359,22 @@
 
             <div class="receipt-divider"></div>
 
-            <!-- TIMBRE ELECTRÓNICO TIPO SII CENTRADO -->
+            <!-- Pie: mensaje de la tienda y código del N° de comprobante (para buscarlo en el historial) -->
             <div style="text-align: center; margin-top: 6px;">
+                <div id="rcp-footer" style="font-size: 0.75rem; font-weight: bold; margin-bottom: 6px;"></div>
                 <svg id="barcode-receipt"></svg>
-                <div style="font-size: 0.65rem; font-weight: bold; margin-top: 4px;">Timbre Electrónico S.I.I.</div>
-                <div style="font-size: 0.6rem;">Res. Exenta N° 80 del 2014 - Verifique documento en www.sii.cl</div>
+                <div style="font-size: 0.6rem; margin-top: 4px;">Documento interno, no válido como boleta.</div>
             </div>
 
-            <button class="btn-print no-print" onclick="window.print()">🖨️ Imprimir Boleta <span class="key-badge">Enter</span></button>
-            <button class="btn-close-modal no-print" onclick="closeReceipt()">Cerrar / Nueva Venta <span class="key-badge">Esc</span></button>
+            <button class="btn-print no-print" onclick="window.print()"><svg class="i"><use href="#i-printer"/></svg> Imprimir comprobante <span class="key-badge">Enter</span></button>
+            <button class="btn-close-modal no-print" onclick="closeReceipt()">Nueva venta <span class="key-badge">Esc</span></button>
         </div>
     </div>
 
     <!-- MODAL CONSULTADOR DE PRECIOS -->
     <div id="price-checker-modal" class="modal">
         <div class="price-checker-card">
-            <h2>🔍 Consulta de Precio</h2>
+            <h2><svg class="i"><use href="#i-tag"/></svg> Consulta de precio</h2>
             <p style="font-size: 0.9rem; color: #6b7280; margin-top: 4px;">Escanea o escribe el código de barras / nombre del producto</p>
             
             <div class="scan-box" style="margin-top: 15px; margin-bottom: 0;">
@@ -1205,7 +1392,7 @@
 
     <!-- MODAL MOVIMIENTOS DE STOCK -->
     <div id="stock-movements-modal" class="modal"><div class="modal-card">
-        <div class="modal-title-row"><div><h2>📦 Movimientos de stock</h2><div style="color:var(--muted);font-size:.82rem;">Entradas, salidas, ajustes, ventas y anulaciones</div></div><button class="btn-soft" onclick="closeStockMovementsModal()">✕</button></div>
+        <div class="modal-title-row"><div><h2><svg class="i"><use href="#i-box"/></svg> Movimientos de stock</h2><div style="color:var(--muted);font-size:.82rem;">Entradas, salidas, ajustes, ventas y anulaciones</div></div><button class="btn-soft" onclick="closeStockMovementsModal()">✕</button></div>
         <div class="grid-2">
             <div class="form-group"><label>Producto</label><select id="movement-product"></select></div>
             <div class="form-group"><label>Tipo de movimiento</label><select id="movement-type"><option value="entry">Entrada</option><option value="exit">Salida</option><option value="adjustment">Ajuste de stock final</option></select></div>
@@ -1219,10 +1406,10 @@
 
     <!-- MODAL IMPORTAR PRODUCTOS DESDE EXCEL -->
     <div id="import-modal" class="modal"><div class="modal-card">
-        <div class="modal-title-row"><div><h2>📥 Importar productos</h2><div style="color:var(--muted);font-size:.82rem;">Excel (.xlsx, .xls) o CSV con columnas: Código, Nombre, Precio, Stock (opcionales: Precio Oferta, Stock Mínimo)</div></div><button class="btn-soft" onclick="closeImportModal()">✕</button></div>
+        <div class="modal-title-row"><div><h2><svg class="i"><use href="#i-upload"/></svg> Importar productos</h2><div style="color:var(--muted);font-size:.82rem;">Excel (.xlsx, .xls) o CSV con columnas: Código, Nombre, Precio, Stock (opcionales: Precio Oferta, Stock Mínimo)</div></div><button class="btn-soft" onclick="closeImportModal()">✕</button></div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-            <button class="btn-secondary" type="button" onclick="document.getElementById('import-file-input').click()">📂 Elegir archivo</button>
-            <button class="btn-soft" type="button" onclick="downloadImportTemplate()">⬇️ Descargar plantilla</button>
+            <button class="btn-secondary" type="button" onclick="document.getElementById('import-file-input').click()"><svg class="i"><use href="#i-file"/></svg> Elegir archivo</button>
+            <button class="btn-soft" type="button" onclick="downloadImportTemplate()"><svg class="i"><use href="#i-download"/></svg> Descargar plantilla</button>
             <span id="import-file-name" style="font-size:.85rem;color:var(--muted);"></span>
             <input id="import-file-input" type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="readImportFile(this.files[0]); this.value='';">
         </div>
@@ -1240,9 +1427,22 @@
         </div>
     </div></div>
 
+    <!-- MODAL CAMBIO DE CONTRASEÑA -->
+    <div id="password-modal" class="modal" style="z-index:10001;"><div class="modal-card" style="width:min(420px,calc(100vw - 28px));">
+        <div class="modal-title-row"><div><h2><svg class="i"><use href="#i-key"/></svg> <span id="password-modal-title">Cambiar contraseña</span></h2><div id="password-modal-text" style="color:var(--muted);font-size:.85rem;margin-top:4px;"></div></div></div>
+        <form onsubmit="submitPasswordModal(event)">
+            <div class="form-group"><label for="pm-new">Nueva contraseña</label><input type="password" id="pm-new" required minlength="4" autocomplete="new-password" placeholder="Mínimo 4 caracteres"></div>
+            <div class="form-group"><label for="pm-confirm">Repite la contraseña</label><input type="password" id="pm-confirm" required minlength="4" autocomplete="new-password"></div>
+            <div style="display:flex;gap:8px;margin-top:6px;">
+                <button type="button" class="btn-soft" style="flex:1;" onclick="cancelPasswordModal()" id="pm-cancel">Cancelar</button>
+                <button type="submit" class="btn-pay" style="flex:2;margin-top:0;min-height:44px;font-size:1rem;"><svg class="i"><use href="#i-check"/></svg> Guardar</button>
+            </div>
+        </form>
+    </div></div>
+
     <!-- MODAL CONTROL DE CAJA -->
     <div id="cash-control-modal" class="modal"><div class="modal-card">
-        <div class="modal-title-row"><div><h2>💰 Control de caja</h2><div id="cash-status-text" style="font-size:.85rem;margin-top:3px;"></div></div><button class="btn-soft" onclick="closeCashControlModal()">✕</button></div>
+        <div class="modal-title-row"><div><h2><svg class="i"><use href="#i-wallet"/></svg> Control de caja</h2><div id="cash-status-text" style="font-size:.85rem;margin-top:3px;"></div></div><button class="btn-soft" onclick="closeCashControlModal()">✕</button></div>
         <div id="cash-open-panel"><div class="form-group"><label>Monto inicial de efectivo</label><input id="cash-opening-amount" type="number" min="0" value="0"></div><button class="btn-pay" style="padding:10px;" onclick="openCashShift()">Abrir caja</button></div>
         <div id="cash-active-panel" style="display:none;">
             <div class="metric-strip"><div><small>Apertura</small><strong id="cash-opening-display">$0</strong></div><div><small>Ventas efectivo</small><strong id="cash-sales-display">$0</strong></div><div><small>Movimientos</small><strong id="cash-moves-display">$0</strong></div><div><small>Efectivo esperado</small><strong id="cash-expected-display">$0</strong></div></div>
@@ -1265,6 +1465,8 @@
         const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
         // Argumento string seguro para atributos onclick="fn(...)"
         const jsArg = (v) => esc(JSON.stringify(String(v ?? '')));
+        // Icono del set SVG incrustado en el <body>
+        const icon = (name) => `<svg class="i" aria-hidden="true"><use href="#i-${name}"/></svg>`;
 
         // Fecha local YYYY-MM-DD (toISOString usa UTC y en Chile desplaza las ventas nocturnas al día siguiente)
         function localDateISO(d = new Date()) {
@@ -1326,8 +1528,11 @@
         function updateSystemUI() {
             const clock = document.getElementById('system-clock');
             if (clock) clock.textContent = new Intl.DateTimeFormat('es-CL', {hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false}).format(new Date());
-            const store = document.getElementById('system-store-name');
-            if (store) store.textContent = (storeConfig && storeConfig.name) ? storeConfig.name : 'POS Pro';
+            const storeName = (storeConfig && storeConfig.name) ? storeConfig.name : 'Punto de Venta';
+            ['system-store-name', 'brand-name', 'login-store-name'].forEach(id => { const el = document.getElementById(id); if (el && el.textContent !== storeName) el.textContent = storeName; });
+            if (document.title !== `${storeName} · Caja`) document.title = `${storeName} · Caja`;
+            const net = document.getElementById('net-status');
+            if (net) { net.classList.toggle('offline', !navigator.onLine); net.lastElementChild.textContent = navigator.onLine ? 'En línea' : 'Sin conexión (la caja sigue funcionando)'; }
             const roleLabel = document.getElementById('system-role-label');
             const userObj = users.find(u => u.name === currentUser);
             if (roleLabel) roleLabel.textContent = currentUser ? `${userObj && userObj.role === 'admin' ? 'Administrador' : 'Cajero'} · ${currentUser}` : 'Sesión cerrada';
@@ -1494,7 +1699,8 @@
             'arqueo-modal': () => closeArqueoModal(),
             'stock-movements-modal': () => closeStockMovementsModal(),
             'cash-control-modal': () => closeCashControlModal(),
-            'import-modal': () => closeImportModal()
+            'import-modal': () => closeImportModal(),
+            'password-modal': () => cancelPasswordModal()
         };
 
         window.addEventListener('keydown', function(e) {
@@ -1559,7 +1765,7 @@
             if (searchMatches.length > 0) {
                 dropdown.innerHTML = searchMatches.map((p, i) => {
                     const priceTag = (p.offerPrice && p.offerPrice > 0)
-                        ? `<span class="strike-price">${formatCLP(p.price)}</span> ${formatCLP(p.offerPrice)} 🔥`
+                        ? `<span class="strike-price">${formatCLP(p.price)}</span> ${formatCLP(p.offerPrice)}`
                         : formatCLP(p.price);
 
                     return `
@@ -1627,7 +1833,7 @@
                         else if (product.stock <= (product.minStock || 5)) stockBadge = `<span class="badge badge-low">Bajo Stock (${product.stock} u.)</span>`;
 
                         const priceHtml = (product.offerPrice && product.offerPrice > 0)
-                            ? `<span class="strike-price" style="font-size:2rem;">${formatCLP(product.price)}</span> ${formatCLP(product.offerPrice)} <span class="badge badge-promo">OFERTA 🔥</span>`
+                            ? `<span class="strike-price" style="font-size:2rem;">${formatCLP(product.price)}</span> ${formatCLP(product.offerPrice)} <span class="badge badge-promo">OFERTA</span>`
                             : formatCLP(product.price);
 
                         displayBox.innerHTML = `
@@ -1638,7 +1844,7 @@
                     } else {
                         playSound('error');
                         displayBox.innerHTML = `
-                            <div style="color: var(--danger); font-size: 1.3rem; font-weight: bold;">❌ Producto No Encontrado</div>
+                            <div style="color: var(--danger); font-size: 1.3rem; font-weight: bold;">Producto no encontrado</div>
                         `;
                     }
                     this.value = '';
@@ -1742,6 +1948,8 @@
                 document.getElementById('user-password').value = '';
                 checkLoginState();
                 resetInactivityTimer();
+                // La clave de fábrica (1234) es conocida por cualquiera: obligar a cambiarla
+                if (enteredPass === DEFAULT_PASSWORD) openPasswordModal(user.name, true);
             } else {
                 playSound('error');
                 notify('Contraseña incorrecta.', 'error');
@@ -1802,21 +2010,54 @@
                 <tr>
                     <td><strong>${esc(u.name)}</strong></td>
                     <td><span class="badge ${u.role === 'admin' ? 'badge-ok' : 'badge-low'}">${u.role === 'admin' ? 'Administrador' : 'Cajero'}</span></td>
-                    <td style="white-space:nowrap;"><button class="btn-soft" style="padding:5px 8px;margin-right:4px;" onclick="changeUserPassword(${jsArg(u.name)})">🔑 Clave</button><button class="btn-delete" onclick="deleteUser(${jsArg(u.name)})">Eliminar</button></td>
+                    <td style="white-space:nowrap;"><button class="btn-soft" style="padding:5px 8px;margin-right:4px;" onclick="changeUserPassword(${jsArg(u.name)})">${icon('key')} Clave</button><button class="btn-delete" onclick="deleteUser(${jsArg(u.name)})">Eliminar</button></td>
                 </tr>
             `).join('');
         }
 
-        async function changeUserPassword(name) {
+        function changeUserPassword(name) {
             if (!requireAdmin()) return;
-            const user = users.find(u => u.name === name);
+            if (users.some(u => u.name === name)) openPasswordModal(name, false);
+        }
+
+        const DEFAULT_PASSWORD = '1234';
+        let passwordModalState = null; // { name, forced }
+
+        function openPasswordModal(name, forced) {
+            passwordModalState = { name, forced };
+            document.getElementById('password-modal-title').textContent = forced ? 'Crea tu contraseña' : 'Cambiar contraseña';
+            document.getElementById('password-modal-text').textContent = forced
+                ? `Estás usando la contraseña de fábrica. Por seguridad, ${name} debe crear una contraseña propia antes de continuar.`
+                : `Nueva contraseña para ${name}.`;
+            document.getElementById('pm-cancel').textContent = forced ? 'Cerrar sesión' : 'Cancelar';
+            document.getElementById('pm-new').value = '';
+            document.getElementById('pm-confirm').value = '';
+            document.getElementById('password-modal').style.display = 'flex';
+            setTimeout(() => document.getElementById('pm-new').focus(), 50);
+        }
+
+        function cancelPasswordModal() {
+            const forced = passwordModalState && passwordModalState.forced;
+            document.getElementById('password-modal').style.display = 'none';
+            passwordModalState = null;
+            if (forced) logout(true); // no se puede seguir usando la clave de fábrica
+        }
+
+        async function submitPasswordModal(e) {
+            e.preventDefault();
+            if (!passwordModalState) return;
+            const pass = document.getElementById('pm-new').value.trim();
+            if (pass.length < 4) { notify('La contraseña debe tener al menos 4 caracteres.', 'error'); return; }
+            if (pass !== document.getElementById('pm-confirm').value.trim()) { notify('Las contraseñas no coinciden.', 'error'); return; }
+            if (pass === DEFAULT_PASSWORD) { notify('Elige una contraseña distinta a la de fábrica.', 'error'); return; }
+            const user = users.find(u => u.name === passwordModalState.name);
             if (!user) return;
-            const pass = prompt(`Nueva contraseña para "${name}" (mínimo 4 caracteres):`);
-            if (pass === null) return;
-            if (pass.trim().length < 4) { notify('La contraseña debe tener al menos 4 caracteres.', 'error'); return; }
-            await setUserPassword(user, pass.trim());
+            await setUserPassword(user, pass);
             localStorage.setItem('pos_users_v2', JSON.stringify(users));
-            notify(`Contraseña de ${name} actualizada.`, 'success');
+            document.getElementById('password-modal').style.display = 'none';
+            notify(`Contraseña de ${user.name} actualizada.`, 'success');
+            passwordModalState = null;
+            document.getElementById('barcode-input').focus();
         }
 
         function addMember(e) {
@@ -1964,6 +2205,7 @@
             document.getElementById('prod-min-stock').value = prod.minStock || 5;
 
             document.getElementById('btn-cancel-edit').style.display = 'block';
+            renderInventory(); // resalta la fila en edición
         }
 
         function cancelEdit() {
@@ -1974,6 +2216,7 @@
             lastLookupCode = '';
             setLookupStatus('', '');
             document.getElementById('btn-cancel-edit').style.display = 'none';
+            renderInventory();
         }
 
         // Abre el formulario de productos con un código nuevo y busca su nombre
@@ -2018,25 +2261,26 @@
 
                 const offerDisplay = (p.offerPrice && p.offerPrice > 0) 
                     ? `<strong style="color:var(--success);">${formatCLP(p.offerPrice)}</strong>` 
-                    : '<span style="color:#9ca3af;">Sin oferta</span>';
+                    : '<span style="color:#cbd5e1;">—</span>';
 
                 const code = jsArg(p.barcode);
+                const stockClass = p.stock === 0 ? 'stock-out' : p.stock <= (p.minStock || 5) ? 'stock-low' : '';
                 return `
-                    <tr>
-                        <td><code>${esc(p.barcode)}</code></td>
-                        <td>${esc(p.name)}</td>
-                        <td>${formatCLP(p.price)}</td>
-                        <td>${offerDisplay}</td>
-                        <td>${p.stock} u.</td>
+                    <tr class="${editingBarcode === p.barcode ? 'row-editing' : ''}">
+                        <td><div class="cell-name">${esc(p.name)}</div><div class="cell-code">${esc(p.barcode)}</div></td>
+                        <td class="num">${formatCLP(p.price)}</td>
+                        <td class="num">${offerDisplay}</td>
+                        <td class="num ${stockClass}">${p.stock}</td>
                         <td>${badge}</td>
-                        <td>
-                            <button class="btn-soft" style="padding:5px 8px;margin-right:4px;" onclick="openStockMovementsModal(${code})">± Stock</button>
-                            <button class="btn-edit" onclick="editProduct(${code})">✏️</button>
-                            <button class="btn-delete" onclick="deleteProduct(${code})">🗑️</button>
+                        <td class="row-actions">
+                            <button class="icon-btn" title="Entrada / salida de stock" onclick="openStockMovementsModal(${code})">${icon('stock')}</button>
+                            <button class="icon-btn" title="Editar" onclick="editProduct(${code})">${icon('edit')}</button>
+                            <button class="icon-btn icon-btn-danger" title="Eliminar" onclick="deleteProduct(${code})">${icon('trash')}</button>
                         </td>
                     </tr>
                 `;
-            }).join('') || `<tr><td colspan="7" class="empty-state">${query ? 'Ningún producto coincide con la búsqueda.' : 'Aún no hay productos registrados.'}</td></tr>`;
+            }).join('') || `<tr><td colspan="6" class="empty-state">${query ? 'Ningún producto coincide con la búsqueda.' : 'Aún no hay productos. Escanea un código en el formulario o importa un Excel.'}</td></tr>`;
+            document.getElementById('inventory-count-pill').textContent = query ? `${filtered.length} de ${inventory.length}` : inventory.length;
         }
 
         document.getElementById('barcode-input').addEventListener('keydown', function(e) {
@@ -2081,6 +2325,7 @@
             }
         });
 
+        let lastAddedBarcode = null;
         function addToCart(barcode) {
             const product = inventory.find(p => p.barcode === barcode);
             if (!product) return;
@@ -2106,6 +2351,7 @@
             }
 
             playSound('success');
+            lastAddedBarcode = barcode;
             renderCart();
         }
 
@@ -2147,20 +2393,23 @@
 
                 const code = jsArg(item.barcode);
                 return `
-                    <tr>
-                        <td><code>${esc(item.barcode)}</code></td>
-                        <td>${esc(item.name)} ${isOffer ? '<span class="badge badge-promo">OFERTA</span>' : ''}</td>
+                    <tr class="${item.barcode === lastAddedBarcode ? 'row-flash' : ''}">
+                        <td><div class="cell-name">${esc(item.name)} ${isOffer ? '<span class="badge badge-promo">OFERTA</span>' : ''}</div><div class="cell-code">${esc(item.barcode)}</div></td>
                         <td>${priceTag}</td>
-                        <td>
-                            <button class="btn-qty" onclick="updateQty(${code}, -1)">-</button>
-                            <span style="margin: 0 5px; font-weight:bold;">${item.qty}</span>
-                            <button class="btn-qty" onclick="updateQty(${code}, 1)">+</button>
+                        <td style="text-align:center;">
+                            <div class="qty-control">
+                                <button class="btn-qty" onclick="updateQty(${code}, -1)" title="Quitar uno">−</button>
+                                <span>${item.qty}</span>
+                                <button class="btn-qty" onclick="updateQty(${code}, 1)" title="Agregar uno">+</button>
+                            </div>
                         </td>
-                        <td>${formatCLP(item.priceToCharge * item.qty)}</td>
-                        <td><button class="btn-delete" onclick="removeFromCart(${code})">X</button></td>
+                        <td class="num"><strong>${formatCLP(item.priceToCharge * item.qty)}</strong></td>
+                        <td style="text-align:right;"><button class="icon-btn icon-btn-danger" onclick="removeFromCart(${code})" title="Quitar producto">${icon('x')}</button></td>
                     </tr>
                 `;
-            }).join('') || '<tr><td colspan="6" class="empty-state">Escanea un producto o búscalo por nombre para comenzar la venta.</td></tr>';
+            }).join('') || '<tr><td colspan="5"><div class="cart-empty"><div class="cart-empty-icon"><svg class="i"><use href="#i-cart"/></svg></div><strong>La venta está vacía</strong><span>Escanea un producto o búscalo por nombre. Usa ↑ ↓ y Enter para elegir de la lista.</span></div></td></tr>';
+            lastAddedBarcode = null; // el destello se muestra solo una vez
+            document.getElementById('cart-count-pill').textContent = cart.reduce((sum, item) => sum + item.qty, 0);
 
             // Guarda la venta en curso para no perderla si se recarga o cierra la pestaña
             localStorage.setItem('pos_cart', JSON.stringify({ items: cart.map(i => ({ barcode: i.barcode, qty: i.qty })), member: selectedMember ? selectedMember.rut : '' }));
@@ -2346,7 +2595,9 @@
 
         function showReceipt(sale) {
             document.getElementById('rcp-store-name').innerText = storeConfig.name;
-            document.getElementById('rcp-store-rut').innerText = storeConfig.rut || '76.543.210-K';
+            document.getElementById('rcp-store-rut').innerText = storeConfig.rut || '';
+            document.getElementById('rcp-store-rut-line').style.display = storeConfig.rut ? 'block' : 'none';
+            document.getElementById('rcp-footer').innerText = storeConfig.footer ?? '¡Gracias por su compra!';
             document.getElementById('rcp-store-address').innerText = storeConfig.address || '';
             document.getElementById('rcp-id').innerText = `N° ${sale.id}`;
             document.getElementById('rcp-date').innerText = sale.date;
@@ -2383,7 +2634,10 @@
             document.getElementById('rcp-paid').innerText = formatCLP(sale.paid);
             document.getElementById('rcp-change').innerText = formatCLP(sale.change);
 
-            JsBarcode("#barcode-receipt", `SII-CL-${sale.id}-${sale.total}`, { format: "CODE128", width: 1.1, height: 35, displayValue: false, margin: 0 });
+            // El código de barras es opcional: si la librería no cargó (sin internet) el comprobante igual se muestra
+            const barcodeSvg = document.getElementById('barcode-receipt');
+            barcodeSvg.style.display = window.JsBarcode ? 'block' : 'none';
+            if (window.JsBarcode) JsBarcode(barcodeSvg, sale.id, { format: "CODE128", width: 1.4, height: 32, displayValue: true, fontSize: 11, margin: 0 });
 
             document.getElementById('receipt-modal').style.display = 'flex';
         }
@@ -2433,14 +2687,22 @@
             tbody.innerHTML = filtered.length ? filtered.map(s => {
                 const statusBadge = s.canceled ? '<span class="badge badge-out">ANULADA</span>' : '<span class="badge badge-ok">COMPLETADA</span>';
                 const id = jsArg(s.id);
-                const actionBtns = `<button class="btn-secondary" style="padding:2px 8px;" onclick="reprintReceipt(${id})">🖨️ Ticket</button>` + (s.canceled ? '' : ` <button class="btn-delete" style="padding:2px 8px;margin-left:4px;" onclick="cancelSale(${id})">🚫 Anular</button>`);
+                const actionBtns = `<button class="btn-secondary" style="padding:2px 8px;" onclick="reprintReceipt(${id})">${icon('printer')} Ticket</button>` + (s.canceled ? '' : ` <button class="btn-delete" style="padding:2px 8px;margin-left:4px;" onclick="cancelSale(${id})">${icon('x')} Anular</button>`);
                 return `<tr class="${s.canceled ? 'canceled-row' : ''}"><td><code>N° ${esc(s.id)}</code></td><td>${esc(s.date)}</td><td><strong>${esc(s.seller || 'General')}</strong></td><td>${esc(s.member || 'Cliente General')}</td><td>${esc(s.method)}</td><td><strong>${formatCLP(s.total)}</strong></td><td>${formatCLP(s.paid)}</td><td>${formatCLP(s.change)}</td><td>${statusBadge}</td><td>${actionBtns}</td></tr>`;
             }).join('') : '<tr><td colspan="10" class="empty-state">No hay transacciones para los filtros seleccionados.</td></tr>';
         }
 
         function reprintReceipt(ticketId) { const sale = salesHistory.find(s => s.id === ticketId); if (sale) showReceipt(sale); }
 
+        // XLSX se carga desde internet: sin conexión, avisar en vez de fallar
+        function requireXLSX() {
+            if (window.XLSX) return true;
+            notify('Esta función necesita internet la primera vez que se abre el sistema. Revisa la conexión y recarga la página.', 'warning');
+            return false;
+        }
+
         function exportSalesToExcel() {
+            if (!requireXLSX()) return;
             const filtered = getFilteredSales();
             if(filtered.length === 0) { notify('No hay ventas para exportar.', 'warning'); return; }
             const dataToExport = filtered.map(s => ({
@@ -2455,16 +2717,30 @@
         function saveConfig(e) {
             e.preventDefault();
             storeConfig = {
+                ...storeConfig,
                 name: document.getElementById('cfg-name').value.trim(),
                 rut: document.getElementById('cfg-rut').value.trim(),
-                address: document.getElementById('cfg-address').value.trim()
+                address: document.getElementById('cfg-address').value.trim(),
+                footer: document.getElementById('cfg-footer').value.trim(),
+                paperWidth: document.getElementById('cfg-paper').value
             };
             localStorage.setItem('pos_config', JSON.stringify(storeConfig));
+            applyPaperWidth();
             updateSystemUI();
-            alert('Configuración guardada');
+            notify('Configuración guardada', 'success');
+        }
+
+        // Ancho del papel de la impresora térmica (58 u 80 mm)
+        function applyPaperWidth() {
+            const mm = storeConfig.paperWidth === '80' ? 80 : 58;
+            let style = document.getElementById('paper-width-style');
+            if (!style) { style = document.createElement('style'); style.id = 'paper-width-style'; document.head.appendChild(style); }
+            style.textContent = `@media print { @page { size: ${mm}mm auto; margin: 0; } .receipt { width: ${mm}mm !important; padding: ${mm === 80 ? 4 : 2}mm !important; font-size: ${mm === 80 ? '0.9rem' : '0.83rem'} !important; } }`;
         }
 
         function loadConfigForm() {
+            document.getElementById('cfg-footer').value = storeConfig.footer ?? '¡Gracias por su compra!';
+            document.getElementById('cfg-paper').value = storeConfig.paperWidth === '80' ? '80' : '58';
             document.getElementById('cfg-name').value = storeConfig.name || '';
             document.getElementById('cfg-rut').value = storeConfig.rut || '';
             document.getElementById('cfg-address').value = storeConfig.address || '';
@@ -2516,6 +2792,7 @@
         function closeImportModal() { document.getElementById('import-modal').style.display = 'none'; }
 
         function downloadImportTemplate() {
+            if (!requireXLSX()) return;
             const ws = XLSX.utils.aoa_to_sheet([
                 ['Código', 'Nombre', 'Precio', 'Precio Oferta', 'Stock', 'Stock Mínimo'],
                 ['7801234567890', 'Ejemplo Bebida 1.5L', 1500, '', 24, 5],
@@ -2528,7 +2805,7 @@
         }
 
         function readImportFile(file) {
-            if (!file) return;
+            if (!file || !requireXLSX()) return;
             document.getElementById('import-file-name').textContent = file.name;
             const reader = new FileReader();
             reader.onload = () => {
@@ -2686,9 +2963,22 @@
             const counts={};sales.forEach(s=>s.items.forEach(i=>{counts[i.name]=(counts[i.name]||0)+i.qty})); const top=Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,5); document.getElementById('top-products').innerHTML=top.map(([n,q],i)=>`<div class="mini-row"><span>${i+1}. ${esc(n)}</span><strong>${q} u.</strong></div>`).join('')||'<div class="empty-state">Aún no hay ventas hoy.</div>';
             document.getElementById('low-stock-list').innerHTML=low.slice(0,6).map(p=>`<div class="mini-row"><span>${esc(p.name)}</span><span class="badge ${p.stock===0?'badge-out':'badge-low'}">${p.stock} u.</span></div>`).join('')||'<div class="empty-state">Sin alertas de stock.</div>';
             document.getElementById('shift-summary').innerHTML=cashShift?`<div class="mini-row"><div><span class="status-open">● Caja abierta</span><div style="font-size:.78rem;color:var(--muted);margin-top:3px">${esc(cashShift.opened)} · ${esc(cashShift.user)}</div></div><strong>${formatCLP(getCashExpected())}</strong></div>`:`<div class="mini-row"><span class="status-closed">● Caja cerrada</span><button class="btn-soft" onclick="openCashControlModal()">Abrir</button></div>`;
+            document.getElementById('shift-summary').innerHTML += backupStatusHtml();
         }
 
-        function exportBackup(){ const data={version:2,exportedAt:new Date().toISOString(),inventory,users,members,salesHistory,storeConfig,stockMovements,cashShift,cashShiftHistory,cashMovements,barcodeCatalog}; const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`POS_Backup_${localDateISO()}.json`;a.click();URL.revokeObjectURL(a.href);notify('Respaldo exportado','success'); }
+        // Recordatorio de respaldo: los datos viven solo en este navegador
+        function backupStatusHtml() {
+            const last = localStorage.getItem('pos_last_backup');
+            const days = last ? Math.floor((Date.now() - new Date(last).getTime()) / 86400000) : null;
+            const ok = days !== null && days < 7;
+            const label = days === null ? 'Nunca se ha hecho un respaldo' : days === 0 ? 'Último respaldo: hoy' : `Último respaldo: hace ${days} día${days === 1 ? '' : 's'}`;
+            return `<div class="mini-row backup-row ${ok ? '' : 'backup-warn'}"><div><strong>${icon(ok ? 'check' : 'alert')} ${label}</strong><div style="font-size:.78rem;color:var(--muted);margin-top:3px">Los datos se guardan en este navegador. Respalda al menos una vez por semana.</div></div><button class="btn-soft" onclick="exportBackup()">Respaldar</button></div>`;
+        }
+
+        // Pide al navegador no borrar los datos de la tienda por falta de espacio
+        if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+
+        function exportBackup(){ const data={version:2,exportedAt:new Date().toISOString(),inventory,users,members,salesHistory,storeConfig,stockMovements,cashShift,cashShiftHistory,cashMovements,barcodeCatalog}; const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`POS_Backup_${localDateISO()}.json`;a.click();URL.revokeObjectURL(a.href);localStorage.setItem('pos_last_backup',new Date().toISOString());renderDashboard();notify('Respaldo exportado. Guárdalo fuera de este equipo (pendrive o nube).','success'); }
         function importBackup(file){ if(!file)return; const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result); if(!Array.isArray(d.inventory)||!Array.isArray(d.salesHistory))throw new Error(); inventory=d.inventory;users=d.users||users;members=d.members||members;salesHistory=d.salesHistory;storeConfig=d.storeConfig||storeConfig;stockMovements=d.stockMovements||[];cashShift=d.cashShift||null;cashShiftHistory=d.cashShiftHistory||[];cashMovements=d.cashMovements||[];barcodeCatalog={...barcodeCatalog,...(d.barcodeCatalog||{})};localStorage.setItem('pos_barcode_catalog',JSON.stringify(barcodeCatalog)); localStorage.setItem('pos_inventory',JSON.stringify(inventory));localStorage.setItem('pos_users_v2',JSON.stringify(users));localStorage.setItem('pos_members',JSON.stringify(members));localStorage.setItem('pos_sales',JSON.stringify(salesHistory));localStorage.setItem('pos_config',JSON.stringify(storeConfig));localStorage.setItem('pos_stock_movements',JSON.stringify(stockMovements));localStorage.setItem('pos_cash_shift_history',JSON.stringify(cashShiftHistory));localStorage.setItem('pos_cash_movements',JSON.stringify(cashMovements));if(cashShift)localStorage.setItem('pos_cash_shift',JSON.stringify(cashShift));else localStorage.removeItem('pos_cash_shift'); migrateUserPasswords();renderInventory();renderSales();renderUsersTable();renderUserSelect();renderMembersTable();renderMemberSelect();loadConfigForm();renderDashboard();notify('Respaldo restaurado correctamente','success');}catch(e){notify('El archivo no corresponde a un respaldo válido','error');}};r.readAsText(file); }
 
         function restoreCart() {
@@ -2723,7 +3013,13 @@
         window.onkeydown = resetInactivityTimer;
         resetInactivityTimer();
 
+        applyPaperWidth();
         checkLoginState();
+        // Si se recargó la página con la sesión abierta y la clave sigue siendo la de fábrica, volver a exigir el cambio
+        passwordsReady.then(async () => {
+            const u = users.find(x => x.name === currentUser);
+            if (u && await verifyPassword(u, DEFAULT_PASSWORD)) openPasswordModal(u.name, true);
+        });
         renderMemberSelect();
         restoreCart();
         renderCart();
